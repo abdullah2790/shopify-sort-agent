@@ -452,9 +452,14 @@ function ConfigTab({ config, title, onSave, onReset }) {
 
   function num(key) { return String(cfg[key] ?? ""); }
   function setNum(key, val) { setCfg(c=>({...c,[key]:parseFloat(val)||0})); }
+  function setPageNum(key, val) { setCfg(c=>({...c,[key]:Math.max(0, parseInt(val)||0)})); }
   function setStr(key, val) { setCfg(c=>({...c,[key]:val})); }
 
+  const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0);
+  const pageTotalValid = pageTotal === 24;
+
   async function handleSave() {
+    if (!pageTotalValid) return;
     setSaving(true);
     const banned = bannedInput.split(",").map(s=>s.trim()).filter(Boolean);
     await onSave({ ...cfg, bannedCategoriesTopN: banned });
@@ -470,19 +475,24 @@ function ConfigTab({ config, title, onSave, onReset }) {
           <Text as="h3" variant="headingSm">Kvote po stranici</Text>
           <FormLayout>
             <FormLayout.Group>
-              <TextField label="Žene" type="number" value={num("womenAdultsPerPage")} onChange={v=>setNum("womenAdultsPerPage",v)} />
-              <TextField label="Muškarci" type="number" value={num("menAdultsPerPage")} onChange={v=>setNum("menAdultsPerPage",v)} />
-              <TextField label="Djevojčice" type="number" value={num("girlsPerPage")} onChange={v=>setNum("girlsPerPage",v)} />
+              <TextField label="Žene" type="number" min="0" value={num("womenAdultsPerPage")} onChange={v=>setPageNum("womenAdultsPerPage",v)} />
+              <TextField label="Muškarci" type="number" min="0" value={num("menAdultsPerPage")} onChange={v=>setPageNum("menAdultsPerPage",v)} />
+              <TextField label="Djevojčice" type="number" min="0" value={num("girlsPerPage")} onChange={v=>setPageNum("girlsPerPage",v)} />
             </FormLayout.Group>
             <FormLayout.Group>
-              <TextField label="Dječaci" type="number" value={num("boysPerPage")} onChange={v=>setNum("boysPerPage",v)} />
-              <TextField label="Bebe" type="number" value={num("babiesPerPage")} onChange={v=>setNum("babiesPerPage",v)} />
+              <TextField label="Dječaci" type="number" min="0" value={num("boysPerPage")} onChange={v=>setPageNum("boysPerPage",v)} />
+              <TextField label="Bebe" type="number" min="0" value={num("babiesPerPage")} onChange={v=>setPageNum("babiesPerPage",v)} />
               <Select label="Ko ide prvi"
                 options={[{label:"Auto",value:"auto"},{label:"Žene",value:"Žene"},{label:"Muškarci",value:"Muškarci"}]}
                 value={cfg.firstGender||"auto"} onChange={v=>setStr("firstGender",v)}
               />
             </FormLayout.Group>
           </FormLayout>
+          <HorizontalStack align="space-between" blockAlign="center">
+            <Text variant="bodySm" tone={pageTotalValid ? "success" : "critical"}>
+              Ukupno: <strong>{pageTotal} / 24</strong>{!pageTotalValid && ` — mora biti tačno 24`}
+            </Text>
+          </HorizontalStack>
         </VerticalStack>
       </Card>
 
@@ -526,7 +536,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
 
       <HorizontalStack align="space-between">
         {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>}
-        <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj</Button>
+        <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid}>Sačuvaj</Button>
       </HorizontalStack>
     </VerticalStack>
   );
