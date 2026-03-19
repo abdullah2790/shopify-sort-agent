@@ -1,0 +1,149 @@
+const Pool = require("./Pool");
+const DEFAULTS = require("../../config/defaults");
+
+function normText(t) { return String(t||"").trim().toLowerCase().replace(/č/g,"c").replace(/ć/g,"c").replace(/š/g,"s").replace(/đ/g,"dj").replace(/ž/g,"z"); }
+function normCat(c) { const n=normText(c); if(n==="polo majica"||n==="polo majice")return "majice"; return n; }
+
+function sortProducts(products, config={}) {
+  const cfg = {...DEFAULTS,...config};
+  const BANNED = new Set(cfg.bannedCategoriesTopN.map(normCat));
+  const ACC = new Set(cfg.accessoryCategories.map(normCat));
+  const SPR = cfg.sprinklerCategoryOrder.map(normCat);
+  const W=cfg.womenType,M=cfg.menType,U=cfg.unisexType,G=cfg.girlsType,B=cfg.boysType,BB=cfg.babyType;
+
+  const items = products.map((p,idx)=>{
+    const type=String(p.product_type||"").trim();
+    const color=extractColor(p);
+    const category=extractCategory(p);
+    const normCategory=normCat(category);
+    const isSprinkler=p.isSprinkler||p.score===cfg.sprinklerScoreValue;
+    const isAccessory=ACC.has(normCategory);
+    return{idx,shopifyId:p.id,type,color,category,normCategory,score:p.score??0,isSprinkler,isAccessory};
+  });
+
+  const raw={womenAdults:[],menAdults:[],unisexAdults:[],girls:[],boys:[],babies:[],sprAccW:[],sprAccM:[],sprAccU:[],sprAccKids:[],sprAccBaby:[],accW:[],accM:[],accU:[],accKids:[],accBaby:[],other:[]};
+  for(const it of items){
+    if(it.isSprinkler){if(it.type===W)raw.sprAccW.push(it);else if(it.type===M)raw.sprAccM.push(it);else if(it.type===U)raw.sprAccU.push(it);else if(it.type===G||it.type===B)raw.sprAccKids.push(it);else if(it.type===BB)raw.sprAccBaby.push(it);else raw.sprAccU.push(it);continue;}
+    if(it.isAccessory){if(it.type===W)raw.accW.push(it);else if(it.type===M)raw.accM.push(it);else if(it.type===U)raw.accU.push(it);else if(it.type===G||it.type===B)raw.accKids.push(it);else if(it.type===BB)raw.accBaby.push(it);else raw.accU.push(it);continue;}
+    if(it.type===W)raw.womenAdults.push(it);else if(it.type===M)raw.menAdults.push(it);else if(it.type===U)raw.unisexAdults.push(it);else if(it.type===G)raw.girls.push(it);else if(it.type===B)raw.boys.push(it);else if(it.type===BB)raw.babies.push(it);else raw.other.push(it);
+  }
+
+  const desc=arr=>arr.sort((a,b)=>b.score-a.score);
+  const P=Object.fromEntries(Object.entries(raw).map(([k,arr])=>[k,new Pool(desc(arr))]));
+  const PEN={c:cfg.penaltySameCategory,col:cfg.penaltySameColor,t:cfg.penaltySameType,c2:cfg.penaltyInLast2Category,col2:cfg.penaltyInLast2Color,t2:cfg.penaltyInLast2Type,c3:cfg.penaltyInLast3Category,col3:cfg.penaltyInLast3Color,t3:cfg.penaltyInLast3Type,c4:cfg.penaltyInLast4Category,col4:cfg.penaltyInLast4Color,t4:cfg.penaltyInLast4Type,c5:cfg.penaltyInLast5Category,col5:cfg.penaltyInLast5Color,t5:cfg.penaltyInLast5Type};
+  let relax=1.0;
+  const out=[];
+
+  function banned(it){return out.length<cfg.banTopN&&BANNED.has(it.normCategory);}
+  function sc(it){
+    const p1=out.at(-1)??null,p2=out.at(-2)??null,p3=out.at(-3)??null,p4=out.at(-4)??null,p5=out.at(-5)??null;
+    let pen=0;
+    if(p1){if(it.category===p1.category)pen+=PEN.c*relax;if(it.color===p1.color)pen+=PEN.col*relax;if(it.type===p1.type)pen+=PEN.t*relax;}
+    if(p2){if(it.category===p2.category)pen+=PEN.c2*relax;if(it.color===p2.color)pen+=PEN.col2*relax;if(it.type===p2.type)pen+=PEN.t2*relax;}
+    if(p3){if(it.category===p3.category)pen+=PEN.c3*relax;if(it.color===p3.color)pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}
+    if(p4){if(it.category===p4.category)pen+=PEN.c4*relax;if(it.color===p4.color)pen+=PEN.col4*relax;if(it.type===p4.type)pen+=PEN.t4*relax;}
+    if(p5){if(it.category===p5.category)pen+=PEN.c5*relax;if(it.color===p5.color)pen+=PEN.col5*relax;if(it.type===p5.type)pen+=PEN.t5*relax;}
+    return it.score-pen+(Math.random()-0.5)*cfg.jitter;
+  }
+  function best(pool){
+    if(!pool.length)return null;
+    const chunk=pool.topN(220);let b=null,bv=-Infinity;
+    for(const it of chunk){if(banned(it))continue;const v=sc(it);if(v>bv){bv=v;b=it;}}
+    if(!b)for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;}}
+    return b;
+  }
+  function commit(pool,it){
+    const p=out.at(-1)??null;
+    const same=p&&it.category===p.category&&it.color===p.color&&it.type===p.type;
+    relax=same?Math.max(relax*cfg.relaxStep,cfg.minRelaxFactor):Math.min(1.0,relax/cfg.relaxStep);
+    out.push(it);if(pool){pool.remove(it);pool.maybeCompact();}
+  }
+  function cbt(it){
+    if(!it)return;if(it.isSprinkler)return commit(null,it);
+    if(it.type===W)return commit(it.isAccessory?P.accW:P.womenAdults,it);
+    if(it.type===M)return commit(it.isAccessory?P.accM:P.menAdults,it);
+    if(it.type===U)return commit(it.isAccessory?P.accU:P.unisexAdults,it);
+    if(it.type===G)return commit(it.isAccessory?P.accKids:P.girls,it);
+    if(it.type===B)return commit(it.isAccessory?P.accKids:P.boys,it);
+    if(it.type===BB)return commit(it.isAccessory?P.accBaby:P.babies,it);
+    commit(P.other,it);
+  }
+  let sprPtr=0;
+  function spr(pool,prev){
+    if(!pool.length)return null;const pc=prev?.normCategory??"";
+    for(let i=0;i<SPR.length;i++){const want=SPR[sprPtr%SPR.length];sprPtr++;const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f)return f;}
+    return pool.popWhere(s=>s.normCategory!==pc)??pool.shift();
+  }
+  function acc(target,prefSpr){
+    const prev=out.at(-1)??null;
+    function ts(sps,nps){
+      if(prefSpr)for(const sp of sps){const s2=spr(sp,prev);if(s2)return s2;}
+      for(const np of nps){const n=best(np);if(n)return n;}
+      if(!prefSpr)for(const sp of sps){const s2=spr(sp,prev);if(s2)return s2;}
+      return null;
+    }
+    if(target==="W")return ts([P.sprAccW,P.sprAccU,P.sprAccM,P.sprAccKids,P.sprAccBaby],[P.accW,P.accU,P.accM,P.accKids,P.accBaby]);
+    if(target==="M")return ts([P.sprAccM,P.sprAccU,P.sprAccW,P.sprAccKids,P.sprAccBaby],[P.accM,P.accU,P.accW,P.accKids,P.accBaby]);
+    return ts([P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids],[P.accW,P.accM,P.accU,P.accKids])??ts([P.sprAccBaby],[P.accBaby]);
+  }
+  function adultSlot(nW,nM){
+    const prev=out.at(-1)??null;
+    function sa(tgt){return spr(tgt==="M"?P.sprAccM:P.sprAccW,prev)??best(tgt==="M"?P.accM:P.accW);}
+    let t=cfg.firstGender==="W"?(nW>0?"W":"M"):cfg.firstGender==="M"?(nM>0?"M":"W"):nW>nM?"W":nM>nW?"M":(prev?.type===W?"M":"W");
+    if(t==="M"){const it=best(P.menAdults)??best(P.unisexAdults)??best(P.womenAdults)??sa("M")??best(P.boys)??best(P.babies)??best(P.girls)??best(P.other);return{it:it??null,filledTarget:"M"};}
+    const it=best(P.womenAdults)??best(P.unisexAdults)??best(P.menAdults)??sa("W")??best(P.girls)??best(P.babies)??best(P.boys)??best(P.other);
+    return{it:it??null,filledTarget:"W"};
+  }
+  function kids(p,...fb){return best(p)??fb.reduce((a,f)=>a??best(f),null);}
+  function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+
+  function buildPage(){
+    let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=1,nAM=1;
+    const pat=shuffle([...Array(16).fill("A"),...Array(8).fill("O")]);
+    const op=shuffle(["ACC","BABY","GIRL","BOY","ACC","BABY","GIRL","BOY"]);
+    let oPtr=0;const ps=out.length;
+    for(let i=0;i<pat.length;i++){
+      const isFirst=out.length===ps;
+      if(pat[i]==="A"||isFirst){const{it,filledTarget}=adultSlot(nW,nM);if(!it)return;if(filledTarget==="W")nW=Math.max(0,nW-1);else nM=Math.max(0,nM-1);cbt(it);continue;}
+      const w=op[oPtr++%op.length];
+      if(w==="ACC"&&(nAW>0||nAM>0)){const t=nAW>0?"W":"M";const it=acc(t,true);if(it){if(t==="W")nAW--;else nAM--;cbt(it);continue;}}
+      if(w==="BABY"&&nBB>0){const it=kids(P.babies,P.girls,P.boys,P.womenAdults,P.menAdults,P.other);if(it){nBB--;cbt(it);continue;}}
+      if(w==="GIRL"&&nG>0){const it=kids(P.girls,P.womenAdults,P.unisexAdults,P.boys,P.babies,P.menAdults,P.other);if(it){nG--;cbt(it);continue;}}
+      if(w==="BOY"&&nB>0){const it=kids(P.boys,P.menAdults,P.unisexAdults,P.girls,P.babies,P.womenAdults,P.other);if(it){nB--;cbt(it);continue;}}
+      const a=acc(null,false);if(a){cbt(a);continue;}
+      const k=kids(P.babies,P.girls,P.boys)??kids(P.girls,P.boys,P.babies)??kids(P.boys,P.girls,P.babies)??best(P.other);if(k){cbt(k);continue;}
+      const{it}=adultSlot(nW,nM);if(!it)return;cbt(it);
+    }
+  }
+
+  function anyLeft(){return Object.values(P).some(p=>p.length>0);}
+  let safety=0;
+  while(anyLeft()&&safety<200000){safety++;const b=out.length;buildPage();if(out.length===b)break;}
+
+  function lks(k,getter){if(out.length<k)return false;const v=getter(out.at(-1));if(!v)return false;for(let i=2;i<=k;i++){if(getter(out.at(-i))!==v)return false;}return true;}
+  function drain(){
+    const ptr=lks(cfg.maxSameTypeRun,x=>x?.type),pcr=lks(cfg.maxSameCategoryRun,x=>x?.normCategory);
+    const pt=out.at(-1)?.type??"",pc=out.at(-1)?.normCategory??"";
+    const pools=[P.womenAdults,P.menAdults,P.unisexAdults,P.girls,P.boys,P.babies,P.accW,P.accM,P.accU,P.accKids,P.accBaby,P.other];
+    for(const mode of[1,2,3]){let bi=null,bp=null,bv=-Infinity;for(const pool of pools){const it=best(pool);if(!it)continue;if(mode===1&&ptr&&it.type===pt)continue;if(mode===2&&pcr&&it.normCategory===pc)continue;const v=sc(it);if(v>bv){bv=v;bi=it;bp=pool;}}if(bi){commit(bp,bi);return bi;}}
+    for(const sp of[P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids,P.sprAccBaby]){const it=sp.shift();if(it){commit(null,it);return it;}}
+    return null;
+  }
+  while(anyLeft()&&safety<400000){safety++;if(!drain())break;}
+
+  return out.map((item,i)=>({shopifyId:item.shopifyId,position:i+1,score:item.score,type:item.type,category:item.category}));
+}
+
+function extractCategory(p){
+  const tags=(p.tags||"").split(",").map(t=>t.trim());
+  for(const tag of tags){const m=tag.match(/^(kategorija|category|kat):(.+)$/i);if(m)return m[2].trim();}
+  return String(p.category||p.product_type||"").trim();
+}
+function extractColor(p){
+  if(p.variants?.[0]?.options){const co=p.variants[0].options.find(o=>["color","colour","boja","farba"].includes((o.name||"").toLowerCase()));if(co)return co.value||"";}
+  const tags=(p.tags||"").split(",").map(t=>t.trim());
+  for(const tag of tags){const m=tag.match(/^(color|colour|boja|farba):(.+)$/i);if(m)return m[2].trim();}
+  return "";
+}
+
+module.exports={sortProducts};
