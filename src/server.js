@@ -209,8 +209,8 @@ app.post("/api/sync-all-collections", async (req, res) => {
   const { shop } = req.body;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
-    const allCols = await getCollections(shop, s.access_token);
-    const all = allCols.filter(col => col.onlineStoreUrl !== null && col.productsCount > 0);
+    const allCols = await getCollections(shop, s.access_token, "published_status:published");
+    const all = allCols.filter(col => col.productsCount > 0);
     let added = 0;
     for (const col of all) {
       const r = await db.query(
