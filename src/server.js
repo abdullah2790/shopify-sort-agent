@@ -139,6 +139,7 @@ app.put("/api/schedule", async (req, res) => {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     await db.query(`UPDATE shop_configs SET schedule = $1 WHERE shop_id = $2`, [JSON.stringify(schedule), s.id]);
     // Restart cron taskova
+    console.log(`💾 [PUT /api/schedule] shop=${shop} schedule=${JSON.stringify(schedule)}`);
     scheduleManager.update(shop, schedule);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
