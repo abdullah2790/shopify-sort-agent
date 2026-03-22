@@ -28,6 +28,7 @@ function SortApp() {
   const [error, setError]           = useState(null);
   const [success, setSuccess]       = useState(null);
   const [sorting, setSorting]       = useState(null);
+  const [addingAll, setAddingAll]   = useState(false);
   const [addModal, setAddModal]     = useState(false);
   const [selected, setSelected]     = useState("");
   const [configModal, setConfigModal] = useState(null);
@@ -52,7 +53,7 @@ function SortApp() {
       setLogs(l.logs||[]);
       setShopConfig(cfg.config||{});
       setCategories(cats.categories||[]);
-      setSchedule(sch.schedule||{ enabled:false, intervalDays:1, hour:3 });
+      setSchedule(sch.schedule||{ enabled:false, intervalDays:1, hour:3, minute:0 });
     } catch { setError("Greška pri učitavanju."); }
     finally { setLoading(false); }
   }, []);
@@ -117,6 +118,18 @@ function SortApp() {
     } catch { setError("Greška."); }
   }
 
+  async function syncAllCollections() {
+    setAddingAll(true); setError(null); setSuccess(null);
+    try {
+      const res = await fetch("/api/sync-all-collections", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop}) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error||"Greška");
+      setSuccess(`✅ Učitano ${d.total} kolekcija, dodano ${d.added} novih.`);
+      await loadData();
+    } catch (e) { setError(e.message); }
+    finally { setAddingAll(false); }
+  }
+
   if (!shop) return <Page title="Smart Sort"><Banner tone="critical"><p>Pristupite kroz Shopify Admin.</p></Banner></Page>;
 
   if (loading) return (
@@ -164,7 +177,10 @@ function SortApp() {
             <VerticalStack gap="400">
               <HorizontalStack align="space-between">
                 <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
-                <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
+                <HorizontalStack gap="200">
+                  <Button variant="plain" loading={addingAll} onClick={syncAllCollections}>Učitaj sve</Button>
+                  <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
+                </HorizontalStack>
               </HorizontalStack>
               {activeWatched.length===0 ? (
                 <EmptyState heading="Nema praćenih kolekcija" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">
@@ -378,7 +394,8 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
   const [cfg, setCfg]   = useState({ ...schedule });
   const [saving, setSaving] = useState(false);
 
-  const hourOptions = Array.from({length:24}, (_,i) => ({ label:`${String(i).padStart(2,"0")}:00`, value:String(i) }));
+  const hourOptions   = Array.from({length:24}, (_,i) => ({ label:`${String(i).padStart(2,"0")}h`, value:String(i) }));
+  const minuteOptions = [0,5,10,15,20,25,30,35,40,45,50,55].map(m => ({ label:String(m).padStart(2,"0"), value:String(m) }));
   const intervalOptions = [
     { label:"Svaki dan", value:"1" },
     { label:"Svaka 2 dana", value:"2" },
@@ -402,7 +419,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
 
         <Banner tone={cfg.enabled?"success":"warning"}>
           <p>{cfg.enabled
-            ? `✅ Aktivan — sortira svake ${cfg.intervalDays===1?"":""+cfg.intervalDays+" "}${cfg.intervalDays===1?"noći":"noći"} u ${String(cfg.hour).padStart(2,"0")}:00.`
+            ? `✅ Aktivan — sortira svake ${cfg.intervalDays===1?"":""+cfg.intervalDays+" "}${cfg.intervalDays===1?"noći":"noći"} u ${String(cfg.hour).padStart(2,"0")}:${String(cfg.minute??0).padStart(2,"0")}.`
             : "⏸ Raspored je isključen. Sortiranje se pokreće samo ručno."
           }</p>
         </Banner>
@@ -423,13 +440,25 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
                 value={String(cfg.intervalDays||1)}
                 onChange={v=>setCfg(c=>({...c, intervalDays:parseInt(v)}))}
               />
-              <Select
-                label="U koje vrijeme"
-                options={hourOptions}
-                value={String(cfg.hour??3)}
-                onChange={v=>setCfg(c=>({...c, hour:parseInt(v)}))}
-                helpText="Preporučeno: 02:00 – 05:00 (malo posjetitelja)"
-              />
+              <HorizontalStack gap="300" blockAlign="end">
+                <div style={{flex:1}}>
+                  <Select
+                    label="Sat"
+                    options={hourOptions}
+                    value={String(cfg.hour??3)}
+                    onChange={v=>setCfg(c=>({...c, hour:parseInt(v)}))}
+                  />
+                </div>
+                <div style={{flex:1}}>
+                  <Select
+                    label="Minute"
+                    options={minuteOptions}
+                    value={String(cfg.minute??0)}
+                    onChange={v=>setCfg(c=>({...c, minute:parseInt(v)}))}
+                    helpText="Preporučeno: 02:00 – 05:00"
+                  />
+                </div>
+              </HorizontalStack>
             </>
           )}
         </FormLayout>

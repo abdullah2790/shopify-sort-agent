@@ -129,7 +129,7 @@ app.get("/api/schedule", async (req, res) => {
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     const r = await db.query(`SELECT schedule FROM shop_configs WHERE shop_id = $1`, [s.id]);
-    res.json({ schedule: r.rows[0]?.schedule || { enabled: false, intervalDays: 1, hour: 3 } });
+    res.json({ schedule: r.rows[0]?.schedule || { enabled: false, intervalDays: 1, hour: 3, minute: 0 } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -192,6 +192,26 @@ app.post("/api/sort-all", async (req, res) => {
   } catch (e) { console.error("Sort all greška:", e.message); }
 });
 
+app.post("/api/sync-all-collections", async (req, res) => {
+  const { shop } = req.body;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const all = await getCollections(shop, s.access_token);
+    let added = 0;
+    for (const col of all) {
+      const r = await db.query(
+        `INSERT INTO watched_collections (shop_id, collection_id, collection_title, active)
+         VALUES ($1,$2,$3,TRUE)
+         ON CONFLICT (shop_id, collection_id) DO UPDATE SET active=TRUE, collection_title=$3
+         RETURNING (xmax = 0) AS inserted`,
+        [s.id, col.id, col.title]
+      );
+      if (r.rows[0]?.inserted) added++;
+    }
+    res.json({ ok: true, total: all.length, added });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/api/logs", async (req, res) => {
   const { shop, limit = 20 } = req.query;
   try { const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" }); const r = await db.query(`SELECT * FROM sort_logs WHERE shop_id = $1 ORDER BY created_at DESC LIMIT $2`, [s.id, limit]); res.json({ logs: r.rows }); }
@@ -218,12 +238,11 @@ const scheduleManager = {
     if (scheduleTasks[shopDomain]) { scheduleTasks[shopDomain].destroy(); delete scheduleTasks[shopDomain]; }
     if (!schedule?.enabled) return;
 
-    const hour = parseInt(schedule.hour ?? 3);
+    const hour        = parseInt(schedule.hour   ?? 3);
+    const minute      = parseInt(schedule.minute ?? 0);
     const intervalDays = parseInt(schedule.intervalDays ?? 1);
 
-    // Cron pattern: svaki dan u određeno vrijeme
-    // Za intervalDays > 1 koristimo jednostavan check u callbacku
-    const pattern = `0 ${hour} * * *`;
+    const pattern = `${minute} ${hour} * * *`;
 
     scheduleTasks[shopDomain] = cron.schedule(pattern, async () => {
       try {
