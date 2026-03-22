@@ -8,12 +8,12 @@ async function gql(shop, token, query, vars = {}) {
 }
 async function getCollectionProducts(shop, token, colId) {
   const gid = colId.toString().startsWith("gid://") ? colId : `gid://shopify/Collection/${colId}`;
-  const q = `query($id:ID!,$c:String){collection(id:$id){products(first:250,after:$c){pageInfo{hasNextPage endCursor}edges{node{id title productType tags variants(first:100){edges{node{id price inventoryQuantity selectedOptions{name value}}}}}}}}}`;
+  const q = `query($id:ID!,$c:String){collection(id:$id){products(first:250,after:$c){pageInfo{hasNextPage endCursor}edges{node{id title productType tags metafield(namespace:"custom",key:"kategorija"){value} variants(first:100){edges{node{id price inventoryQuantity selectedOptions{name value}}}}}}}}}`;
   const prods=[]; let cursor=null,more=true;
   while(more){const d=await gql(shop,token,q,{id:gid,c:cursor});const col=d?.collection;if(!col)break;for(const e of col.products.edges)prods.push(norm(e.node));more=col.products.pageInfo.hasNextPage;cursor=col.products.pageInfo.endCursor;if(more)await s(300);}
   return prods;
 }
-function norm(p){const id=p.id.replace("gid://shopify/Product/","");const variants=p.variants.edges.map(e=>({id:e.node.id.replace("gid://shopify/ProductVariant/",""),price:e.node.price,inventory_quantity:e.node.inventoryQuantity,options:e.node.selectedOptions}));const co=variants[0]?.options?.find(o=>["color","colour","boja","farba"].includes(o.name.toLowerCase()));return{id,title:p.title,product_type:p.productType,tags:p.tags?.join(",")||"",color:co?.value||"",variants};}
+function norm(p){const id=p.id.replace("gid://shopify/Product/","");const variants=p.variants.edges.map(e=>({id:e.node.id.replace("gid://shopify/ProductVariant/",""),price:e.node.price,inventory_quantity:e.node.inventoryQuantity,options:e.node.selectedOptions}));const co=variants[0]?.options?.find(o=>["color","colour","boja","farba"].includes(o.name.toLowerCase()));const kategorija=p.metafield?.value?.trim()||"";return{id,title:p.title,product_type:p.productType,tags:p.tags?.join(",")||"",color:co?.value||"",kategorija,variants};}
 async function getCollections(shop, token, queryFilter = "") {
   const qArg = queryFilter ? `,query:${JSON.stringify(queryFilter)}` : "";
   const q=`query($c:String){collections(first:250,after:$c${qArg}){pageInfo{hasNextPage endCursor}edges{node{id title handle productsCount{count}}}}}`;

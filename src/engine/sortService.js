@@ -44,7 +44,7 @@ function calculateScores(products, categoryScores = {}) {
 
     const category = extractCategory(p);
     const catInfo = categoryScores[category] || {};
-    if (catInfo.isSprinkler) return { ...p, score: -1, isSprinkler: true };
+    if (catInfo.isSprinkler) return { ...p, category, score: -1, isSprinkler: true };
     const catScore = catInfo[season] ?? 5;
     const variants  = p.variants?.length || 0;
     const inventory = (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0);
@@ -52,7 +52,7 @@ function calculateScores(products, categoryScores = {}) {
     const invScore = Math.min(inventory, p95Inv) / Math.max(p95Inv, 1);
     const score = parseFloat((12 * (((catScore - 1) / 9) * 0.65 + varScore * 0.25 + invScore * 0.10)).toFixed(1));
 
-    return { ...p, score, isSprinkler: false };
+    return { ...p, category, score, isSprinkler: false };
   });
 }
 
