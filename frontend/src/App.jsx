@@ -28,7 +28,6 @@ function SortApp() {
   const [error, setError]           = useState(null);
   const [success, setSuccess]       = useState(null);
   const [sorting, setSorting]       = useState(null);
-  const [addingAll, setAddingAll]   = useState(false);
   const [selectedCols, setSelectedCols] = useState([]);
   const [addModal, setAddModal]     = useState(false);
   const [selected, setSelected]     = useState("");
@@ -120,30 +119,17 @@ function SortApp() {
   }
 
   async function bulkRemove(removeAll) {
-    const ids = removeAll ? [] : (selectedCols === "All" ? [] : selectedCols);
-    const isAll = removeAll || selectedCols === "All";
+    const ids = removeAll ? [] : selectedCols;
     setError(null); setSuccess(null);
     try {
       const res = await fetch("/api/watched-collections/bulk-remove", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ shop, collectionIds: ids, all: isAll }),
+        body: JSON.stringify({ shop, collectionIds: ids, all: removeAll }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Greška");
       setSelectedCols([]);
       await loadData();
     } catch (e) { setError(e.message); }
-  }
-
-  async function syncAllCollections() {
-    setAddingAll(true); setError(null); setSuccess(null);
-    try {
-      const res = await fetch("/api/sync-all-collections", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop}) });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error||"Greška");
-      setSuccess(`✅ Učitano ${d.total} kolekcija, dodano ${d.added} novih.`);
-      await loadData();
-    } catch (e) { setError(e.message); }
-    finally { setAddingAll(false); }
   }
 
   if (!shop) return <Page title="Smart Sort"><Banner tone="critical"><p>Pristupite kroz Shopify Admin.</p></Banner></Page>;
@@ -193,10 +179,7 @@ function SortApp() {
             <VerticalStack gap="400">
               <HorizontalStack align="space-between">
                 <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
-                <HorizontalStack gap="200">
-                  <Button variant="plain" loading={addingAll} onClick={syncAllCollections}>Učitaj sve</Button>
-                  <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
-                </HorizontalStack>
+                <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
               </HorizontalStack>
               {activeWatched.length===0 ? (
                 <EmptyState heading="Nema praćenih kolekcija" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">
@@ -206,7 +189,7 @@ function SortApp() {
                 <ResourceList
                   items={activeWatched}
                   selectedItems={selectedCols}
-                  onSelectionChange={setSelectedCols}
+                  onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
                   selectable
                   promotedBulkActions={[
                     { content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) },
