@@ -192,6 +192,19 @@ app.post("/api/sort-all", async (req, res) => {
   } catch (e) { console.error("Sort all greška:", e.message); }
 });
 
+app.post("/api/watched-collections/bulk-remove", async (req, res) => {
+  const { shop, collectionIds, all } = req.body;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    if (all) {
+      await db.query(`UPDATE watched_collections SET active=FALSE WHERE shop_id=$1`, [s.id]);
+    } else if (Array.isArray(collectionIds) && collectionIds.length) {
+      await db.query(`UPDATE watched_collections SET active=FALSE WHERE shop_id=$1 AND collection_id=ANY($2)`, [s.id, collectionIds]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/api/sync-all-collections", async (req, res) => {
   const { shop } = req.body;
   try {

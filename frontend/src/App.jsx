@@ -29,6 +29,7 @@ function SortApp() {
   const [success, setSuccess]       = useState(null);
   const [sorting, setSorting]       = useState(null);
   const [addingAll, setAddingAll]   = useState(false);
+  const [selectedCols, setSelectedCols] = useState([]);
   const [addModal, setAddModal]     = useState(false);
   const [selected, setSelected]     = useState("");
   const [configModal, setConfigModal] = useState(null);
@@ -118,6 +119,21 @@ function SortApp() {
     } catch { setError("Greška."); }
   }
 
+  async function bulkRemove(removeAll) {
+    const ids = removeAll ? [] : (selectedCols === "All" ? [] : selectedCols);
+    const isAll = removeAll || selectedCols === "All";
+    setError(null); setSuccess(null);
+    try {
+      const res = await fetch("/api/watched-collections/bulk-remove", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ shop, collectionIds: ids, all: isAll }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Greška");
+      setSelectedCols([]);
+      await loadData();
+    } catch (e) { setError(e.message); }
+  }
+
   async function syncAllCollections() {
     setAddingAll(true); setError(null); setSuccess(null);
     try {
@@ -187,32 +203,44 @@ function SortApp() {
                   <Button onClick={()=>setAddModal(true)}>Dodaj kolekciju</Button>
                 </EmptyState>
               ) : (
-                <ResourceList items={activeWatched} renderItem={(item) => {
-                  const isSorting = sorting===item.collection_id;
-                  const hasOwn = !!item.collection_config;
-                  return (
-                    <ResourceItem id={item.collection_id} shortcutActions={[
-                      { content:isSorting?"Sortira...":"Sortiraj", loading:isSorting, onAction:()=>runSort(item.collection_id, item.collection_title) },
-                      { content:"Postavke", onAction:()=>setConfigModal(item.collection_id) },
-                      { content:"Ukloni", destructive:true, onAction:()=>removeCollection(item.collection_id) },
-                    ]}>
-                      <HorizontalStack align="space-between" blockAlign="center">
-                        <VerticalStack gap="100">
-                          <HorizontalStack gap="200" blockAlign="center">
-                            <Text fontWeight="semibold">{item.collection_title}</Text>
-                            {hasOwn && <Badge tone="info">Vlastite postavke</Badge>}
-                          </HorizontalStack>
-                          <Text tone="subdued" variant="bodySm">
-                            Zadnji sort: {item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : "Nikad"}
-                          </Text>
-                        </VerticalStack>
-                        <Badge tone={item.last_sorted_at?"success":"attention"}>
-                          {item.last_sorted_at?"Sortirano":"Čeka"}
-                        </Badge>
-                      </HorizontalStack>
-                    </ResourceItem>
-                  );
-                }}/>
+                <ResourceList
+                  items={activeWatched}
+                  selectedItems={selectedCols}
+                  onSelectionChange={setSelectedCols}
+                  selectable
+                  promotedBulkActions={[
+                    { content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) },
+                  ]}
+                  bulkActions={[
+                    { content:"Ukloni sve kolekcije", destructive:true, onAction:()=>bulkRemove(true) },
+                  ]}
+                  renderItem={(item) => {
+                    const isSorting = sorting===item.collection_id;
+                    const hasOwn = !!item.collection_config;
+                    return (
+                      <ResourceItem id={item.collection_id} shortcutActions={[
+                        { content:isSorting?"Sortira...":"Sortiraj", loading:isSorting, onAction:()=>runSort(item.collection_id, item.collection_title) },
+                        { content:"Postavke", onAction:()=>setConfigModal(item.collection_id) },
+                        { content:"Ukloni", destructive:true, onAction:()=>removeCollection(item.collection_id) },
+                      ]}>
+                        <HorizontalStack align="space-between" blockAlign="center">
+                          <VerticalStack gap="100">
+                            <HorizontalStack gap="200" blockAlign="center">
+                              <Text fontWeight="semibold">{item.collection_title}</Text>
+                              {hasOwn && <Badge tone="info">Vlastite postavke</Badge>}
+                            </HorizontalStack>
+                            <Text tone="subdued" variant="bodySm">
+                              Zadnji sort: {item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : "Nikad"}
+                            </Text>
+                          </VerticalStack>
+                          <Badge tone={item.last_sorted_at?"success":"attention"}>
+                            {item.last_sorted_at?"Sortirano":"Čeka"}
+                          </Badge>
+                        </HorizontalStack>
+                      </ResourceItem>
+                    );
+                  }}
+                />
               )}
             </VerticalStack>
           </Card>
