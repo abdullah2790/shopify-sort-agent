@@ -196,7 +196,7 @@ app.post("/api/sync-all-collections", async (req, res) => {
   const { shop } = req.body;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
-    const all = await getCollections(shop, s.access_token);
+    const all = await getCollections(shop, s.access_token, "published_status:published");
     let added = 0;
     for (const col of all) {
       const r = await db.query(

@@ -14,8 +14,9 @@ async function getCollectionProducts(shop, token, colId) {
   return prods;
 }
 function norm(p){const id=p.id.replace("gid://shopify/Product/","");const variants=p.variants.edges.map(e=>({id:e.node.id.replace("gid://shopify/ProductVariant/",""),price:e.node.price,inventory_quantity:e.node.inventoryQuantity,options:e.node.selectedOptions}));const co=variants[0]?.options?.find(o=>["color","colour","boja","farba"].includes(o.name.toLowerCase()));return{id,title:p.title,product_type:p.productType,tags:p.tags?.join(",")||"",color:co?.value||"",variants};}
-async function getCollections(shop, token) {
-  const q=`query($c:String){collections(first:250,after:$c){pageInfo{hasNextPage endCursor}edges{node{id title handle}}}}`;
+async function getCollections(shop, token, queryFilter = "") {
+  const qArg = queryFilter ? `,query:${JSON.stringify(queryFilter)}` : "";
+  const q=`query($c:String){collections(first:250,after:$c${qArg}){pageInfo{hasNextPage endCursor}edges{node{id title handle}}}}`;
   const cols=[]; let cursor=null,more=true;
   while(more){const d=await gql(shop,token,q,{c:cursor});for(const e of d.collections.edges){const c=e.node;cols.push({id:c.id.replace("gid://shopify/Collection/",""),title:c.title,handle:c.handle});}more=d.collections.pageInfo.hasNextPage;cursor=d.collections.pageInfo.endCursor;if(more)await s(300);}
   return cols;
