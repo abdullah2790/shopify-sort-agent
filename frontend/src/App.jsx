@@ -187,6 +187,7 @@ function SortApp() {
                 </EmptyState>
               ) : (
                 <ResourceList
+                  idForItem={(item) => item.collection_id}
                   items={activeWatched}
                   selectedItems={selectedCols}
                   onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
