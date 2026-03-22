@@ -250,7 +250,7 @@ const scheduleTasks = {};
 const scheduleManager = {
   update(shopDomain, schedule) {
     // Zaustavi stari task
-    if (scheduleTasks[shopDomain]) { scheduleTasks[shopDomain].destroy(); delete scheduleTasks[shopDomain]; }
+    if (scheduleTasks[shopDomain]) { scheduleTasks[shopDomain].stop(); delete scheduleTasks[shopDomain]; }
     if (!schedule?.enabled) return;
 
     const hour        = parseInt(schedule.hour   ?? 3);
