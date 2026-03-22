@@ -87,7 +87,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
   }
 }
 
-async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "cron" }) {
+async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual" }) {
   const res = await db.query(
     `SELECT collection_id, collection_config FROM watched_collections WHERE shop_id = $1 AND active = TRUE`,
     [shopId]

@@ -226,18 +226,25 @@ const scheduleManager = {
     const pattern = `0 ${hour} * * *`;
 
     scheduleTasks[shopDomain] = cron.schedule(pattern, async () => {
-      // Provjeri interval — skip ako nije prošlo dovoljno vremena
-      const s = await getShop(shopDomain).catch(()=>null);
-      if (!s) return;
+      try {
+        // Provjeri interval — skip ako nije prošlo dovoljno vremena
+        // Intentionally checks only trigger='cron' — manual runs ne utiču na schedule
+        const s = await getShop(shopDomain).catch(()=>null);
+        if (!s) return;
 
-      const lastLog = await db.query(`SELECT created_at FROM sort_logs WHERE shop_id=$1 AND trigger='cron' ORDER BY created_at DESC LIMIT 1`, [s.id]);
-      if (lastLog.rows.length && intervalDays > 1) {
-        const daysSince = (Date.now() - new Date(lastLog.rows[0].created_at).getTime()) / (1000*60*60*24);
-        if (daysSince < intervalDays - 0.5) { console.log(`⏭ [${shopDomain}] Skip — interval ${intervalDays}d, prošlo ${daysSince.toFixed(1)}d`); return; }
+        if (intervalDays > 1) {
+          const lastLog = await db.query(`SELECT created_at FROM sort_logs WHERE shop_id=$1 AND trigger='cron' ORDER BY created_at DESC LIMIT 1`, [s.id]);
+          if (lastLog.rows.length) {
+            const daysSince = (Date.now() - new Date(lastLog.rows[0].created_at).getTime()) / (1000*60*60*24);
+            if (daysSince < intervalDays - 0.5) { console.log(`⏭ [${shopDomain}] Skip — interval ${intervalDays}d, prošlo ${daysSince.toFixed(1)}d`); return; }
+          }
+        }
+
+        console.log(`⏰ [${shopDomain}] Schedule sort pokrenut`);
+        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron" });
+      } catch (err) {
+        console.error(`❌ [${shopDomain}] Schedule greška (cron ostaje aktivan):`, err.message);
       }
-
-      console.log(`⏰ [${shopDomain}] Schedule sort pokrenut`);
-      await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron" });
     });
 
     console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:00`);
