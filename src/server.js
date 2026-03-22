@@ -278,7 +278,7 @@ const scheduleManager = {
       } catch (err) {
         console.error(`❌ [${shopDomain}] Schedule greška (cron ostaje aktivan):`, err.message);
       }
-    });
+    }, { timezone: "Europe/Sarajevo" });
 
     console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:00`);
   },
