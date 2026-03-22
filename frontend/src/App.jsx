@@ -319,6 +319,11 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
     for (const c of categories) m[c.handle] = { ...c.season_scores };
     return m;
   });
+  const [sprinklers, setSprinklers] = useState(() => {
+    const m = {};
+    for (const c of categories) m[c.handle] = c.is_sprinkler || false;
+    return m;
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -326,6 +331,9 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
     for (const c of categories) m[c.handle] = { ...c.season_scores };
     setScores(m);
     scoresRef.current = m;
+    const sp = {};
+    for (const c of categories) sp[c.handle] = c.is_sprinkler || false;
+    setSprinklers(sp);
   }, [categories]);
 
   function setScore(handle, season, val) {
@@ -336,10 +344,14 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
     });
   }
 
+  function toggleSprinkler(handle) {
+    setSprinklers(sp => ({ ...sp, [handle]: !sp[handle] }));
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
-      const arr = Object.entries(scores).map(([handle, season_scores]) => ({ handle, season_scores }));
+      const arr = Object.entries(scores).map(([handle, season_scores]) => ({ handle, season_scores, is_sprinkler: sprinklers[handle] || false }));
       await fetch("/api/categories/scores", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, scores:arr}) });
       onSuccess("✅ Sezonski scorevi sačuvani!");
     } catch { onError("Greška pri čuvanju."); }
@@ -373,6 +385,7 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
               <tr style={{borderBottom:"2px solid #e1e3e5"}}>
                 <th style={{textAlign:"left",padding:"10px 12px",fontWeight:600}}>Kategorija</th>
                 {SEASONS.map(s=><th key={s} style={{textAlign:"center",padding:"10px 12px",fontWeight:600,minWidth:"80px"}}>{SEASON_LABELS[s]}</th>)}
+                <th style={{textAlign:"center",padding:"10px 12px",fontWeight:600,minWidth:"80px"}}>Sprinkler</th>
               </tr>
             </thead>
             <tbody>
@@ -389,6 +402,14 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
                       />
                     </td>
                   ))}
+                  <td style={{padding:"4px 8px",textAlign:"center"}}>
+                    <input
+                      type="checkbox"
+                      checked={sprinklers[cat.handle] || false}
+                      onChange={()=>toggleSprinkler(cat.handle)}
+                      style={{width:"18px",height:"18px",cursor:"pointer"}}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>

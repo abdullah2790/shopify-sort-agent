@@ -100,7 +100,7 @@ async function fetchCategoriesFromShopify(shopDomain, accessToken) {
  */
 async function getCategories(shopId) {
   const r = await db.query(
-    `SELECT handle, name, season_scores FROM categories WHERE shop_id = $1 ORDER BY name`,
+    `SELECT handle, name, season_scores, is_sprinkler FROM categories WHERE shop_id = $1 ORDER BY name`,
     [shopId]
   );
   return r.rows;
@@ -110,11 +110,11 @@ async function getCategories(shopId) {
  * Sačuvaj season_scores za kategorije
  */
 async function saveSeasonScores(shopId, scores) {
-  // scores = [{ handle, season_scores: { zima, proljece, ljeto, jesen } }]
-  for (const { handle, season_scores } of scores) {
+  // scores = [{ handle, season_scores: { zima, proljece, ljeto, jesen }, is_sprinkler? }]
+  for (const { handle, season_scores, is_sprinkler } of scores) {
     await db.query(
-      `UPDATE categories SET season_scores = $1 WHERE shop_id = $2 AND handle = $3`,
-      [JSON.stringify(season_scores), shopId, handle]
+      `UPDATE categories SET season_scores = $1, is_sprinkler = $2 WHERE shop_id = $3 AND handle = $4`,
+      [JSON.stringify(season_scores), is_sprinkler ?? false, shopId, handle]
     );
   }
 }
@@ -127,7 +127,7 @@ async function getCategoryScoresForSort(shopId) {
   const cats = await getCategories(shopId);
   const result = {};
   for (const cat of cats) {
-    result[cat.name] = cat.season_scores;
+    result[cat.name] = { ...cat.season_scores, isSprinkler: cat.is_sprinkler || false };
   }
   return result;
 }

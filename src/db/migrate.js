@@ -57,6 +57,8 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_categories_shop ON categories(shop_id);
     `);
 
+    await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_sprinkler BOOLEAN DEFAULT FALSE;`);
+
     await client.query("COMMIT");
     console.log("✅ Migracija uspješna");
   } catch (e) {

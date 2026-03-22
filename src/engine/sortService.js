@@ -43,7 +43,9 @@ function calculateScores(products, categoryScores = {}) {
     if (tags.includes("sprinkler") || tags.includes("spotlight")) return { ...p, score: -1, isSprinkler: true };
 
     const category = extractCategory(p);
-    const catScore = categoryScores[category]?.[season] ?? 5;
+    const catInfo = categoryScores[category] || {};
+    if (catInfo.isSprinkler) return { ...p, score: -1, isSprinkler: true };
+    const catScore = catInfo[season] ?? 5;
     const variants  = p.variants?.length || 0;
     const inventory = (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0);
     const varScore = Math.min(variants,  p95Var) / Math.max(p95Var, 1);
