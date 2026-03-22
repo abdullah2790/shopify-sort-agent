@@ -77,19 +77,21 @@ function SortApp() {
   async function runSort(collectionId, title) {
     setSorting(collectionId); setError(null); setSuccess(null);
     try {
-      await fetch("/api/sort", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId}) });
+      const res = await fetch("/api/sort", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId}) });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || `HTTP ${res.status}`); }
       setSuccess(`✅ Sortiranje "${title}" pokrenuto!`);
       setTimeout(loadData, 3000);
-    } catch { setError("Greška."); } finally { setSorting(null); }
+    } catch (e) { setError(e.message || "Greška."); } finally { setSorting(null); }
   }
 
   async function runSortAll() {
     setSorting("all"); setError(null); setSuccess(null);
     try {
-      await fetch("/api/sort-all", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop}) });
+      const res = await fetch("/api/sort-all", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop}) });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || `HTTP ${res.status}`); }
       setSuccess("✅ Sortiranje svih kolekcija pokrenuto!");
       setTimeout(loadData, 5000);
-    } catch { setError("Greška."); } finally { setSorting(null); }
+    } catch (e) { setError(e.message || "Greška."); } finally { setSorting(null); }
   }
 
   async function addCollection() {
@@ -418,9 +420,10 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
   async function handleSave() {
     setSaving(true);
     try {
-      await fetch("/api/schedule", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, schedule:cfg}) });
+      const res = await fetch("/api/schedule", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, schedule:cfg}) });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || `HTTP ${res.status}`); }
       onSaved(cfg);
-    } catch { onError("Greška pri čuvanju rasporeda."); }
+    } catch (e) { onError(e.message || "Greška pri čuvanju rasporeda."); }
     finally { setSaving(false); }
   }
 

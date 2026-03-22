@@ -287,6 +287,12 @@ const scheduleManager = {
   async init() {
     // Učitaj sve aktivne schedule-ove pri startu servera
     try {
+      // Provjeri postoji li schedule kolona prije upita
+      const col = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='shop_configs' AND column_name='schedule'`);
+      if (!col.rows.length) {
+        console.warn("⚠️  Kolona 'schedule' ne postoji u shop_configs — pokreni: node src/db/migrate.js");
+        return;
+      }
       const r = await db.query(`SELECT s.shop_domain, sc.schedule FROM shops s JOIN shop_configs sc ON sc.shop_id=s.id WHERE s.active=TRUE AND sc.schedule->>'enabled'='true'`);
       for (const row of r.rows) this.update(row.shop_domain, row.schedule);
       console.log(`📅 Schedule inicijalizovan za ${r.rows.length} shopova`);
