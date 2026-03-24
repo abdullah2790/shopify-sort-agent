@@ -35,6 +35,7 @@ function SortApp() {
 
   // Ref na trenutne scoreve kategorija — za auto-save
   const catScoresRef = useRef({});
+  const sprinklersRef = useRef({});
 
   const loadData = useCallback(async () => {
     if (!shop) return;
@@ -60,9 +61,13 @@ function SortApp() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Auto-save scoreva prije osvježavanja
+  // Auto-save scoreva i sprinklera prije osvježavanja
   async function saveCurrentScores() {
-    const scores = Object.entries(catScoresRef.current).map(([handle, season_scores]) => ({ handle, season_scores }));
+    const scores = Object.entries(catScoresRef.current).map(([handle, season_scores]) => ({
+      handle,
+      season_scores,
+      is_sprinkler: sprinklersRef.current[handle] || false
+    }));
     if (!scores.length) return;
     try {
       await fetch("/api/categories/scores", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, scores}) });
@@ -109,10 +114,14 @@ function SortApp() {
     } catch { setError("Greška."); }
   }
 
-  // Sync + auto-save trenutnih scoreva
+  // Sync + auto-save trenutnih scoreva i sprinklera
   async function syncCategories() {
     setError(null); setSuccess(null);
-    const scores = Object.entries(catScoresRef.current).map(([handle, season_scores]) => ({ handle, season_scores }));
+    const scores = Object.entries(catScoresRef.current).map(([handle, season_scores]) => ({
+      handle,
+      season_scores,
+      is_sprinkler: sprinklersRef.current[handle] || false
+    }));
     try {
       await fetch("/api/categories/sync", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, scores}) });
       setSuccess("✅ Scorevi sačuvani i sync kategorija pokrenut! Osvježi za par sekundi.");
@@ -238,6 +247,7 @@ function SortApp() {
             categories={categories}
             shop={shop}
             scoresRef={catScoresRef}
+            sprinklersRef={sprinklersRef}
             onSaved={loadData}
             onError={setError}
             onSuccess={setSuccess}
@@ -313,7 +323,7 @@ function SortApp() {
 }
 
 // ── Kategorije Tab ─────────────────────────────────────────────────────────
-function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSuccess }) {
+function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, onError, onSuccess }) {
   const [scores, setScores] = useState(() => {
     const m = {};
     for (const c of categories) m[c.handle] = { ...c.season_scores };
@@ -334,7 +344,8 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
     const sp = {};
     for (const c of categories) sp[c.handle] = c.is_sprinkler || false;
     setSprinklers(sp);
-  }, [categories]);
+    sprinklersRef.current = sp;
+  }, [categories, scoresRef, sprinklersRef]);
 
   function setScore(handle, season, val) {
     setScores(s => {
@@ -345,7 +356,11 @@ function CategoriesTab({ categories, shop, scoresRef, onSaved, onError, onSucces
   }
 
   function toggleSprinkler(handle) {
-    setSprinklers(sp => ({ ...sp, [handle]: !sp[handle] }));
+    setSprinklers(sp => {
+      const next = { ...sp, [handle]: !sp[handle] };
+      sprinklersRef.current = next;
+      return next;
+    });
   }
 
   async function handleSave() {
@@ -520,7 +535,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
   function setPageNum(key, val) { setCfg(c=>({...c,[key]:Math.max(0, parseInt(val)||0)})); }
   function setStr(key, val) { setCfg(c=>({...c,[key]:val})); }
 
-  const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0);
+  const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0) + (cfg.maleAccessoriesPerPage||0) + (cfg.femaleAccessoriesPerPage||0);
   const pageTotalValid = pageTotal === 24;
 
   async function handleSave() {
@@ -547,6 +562,10 @@ function ConfigTab({ config, title, onSave, onReset }) {
             <FormLayout.Group>
               <TextField label="Dječaci" type="number" min="0" value={num("boysPerPage")} onChange={v=>setPageNum("boysPerPage",v)} />
               <TextField label="Bebe" type="number" min="0" value={num("babiesPerPage")} onChange={v=>setPageNum("babiesPerPage",v)} />
+              <TextField label="Ženske aksesoar" type="number" min="0" value={num("femaleAccessoriesPerPage")} onChange={v=>setPageNum("femaleAccessoriesPerPage",v)} />
+            </FormLayout.Group>
+            <FormLayout.Group>
+              <TextField label="Muške aksesoar" type="number" min="0" value={num("maleAccessoriesPerPage")} onChange={v=>setPageNum("maleAccessoriesPerPage",v)} />
               <Select label="Ko ide prvi"
                 options={[{label:"Auto",value:"auto"},{label:"Žene",value:"Žene"},{label:"Muškarci",value:"Muškarci"}]}
                 value={cfg.firstGender||"auto"} onChange={v=>setStr("firstGender",v)}

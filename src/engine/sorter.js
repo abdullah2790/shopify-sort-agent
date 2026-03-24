@@ -98,7 +98,7 @@ function sortProducts(products, config={}) {
   function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
 
   function buildPage(){
-    let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=1,nAM=1;
+    let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=cfg.maleAccessoriesPerPage??0,nAM=cfg.femaleAccessoriesPerPage??0;
     const pat=shuffle([...Array(16).fill("A"),...Array(8).fill("O")]);
     const op=shuffle(["ACC","BABY","GIRL","BOY","ACC","BABY","GIRL","BOY"]);
     let oPtr=0;const ps=out.length;

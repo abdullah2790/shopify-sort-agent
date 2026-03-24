@@ -34,6 +34,8 @@ module.exports = {
   girlsPerPage      : 2,
   boysPerPage       : 2,
   babiesPerPage     : 2,
+  femaleAccessoriesPerPage : 0,
+  maleAccessoriesPerPage   : 0,
   firstGender       : "auto",
   banTopN              : 24,
   bannedCategoriesTopN : ["Setovi", "Potkošulje"],
