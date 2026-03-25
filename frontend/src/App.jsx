@@ -728,38 +728,87 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
   );
 }
 
+// ── Drag & Drop priority list ───────────────────────────────────────────────
+function AccPriorityList({ items, onChange }) {
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  function drop(toIdx) {
+    if (dragIdx === null || dragIdx === toIdx) { setDragIdx(null); setOverIdx(null); return; }
+    const a = [...items];
+    const [item] = a.splice(dragIdx, 1);
+    a.splice(toIdx, 0, item);
+    onChange(a);
+    setDragIdx(null); setOverIdx(null);
+  }
+  if (!items.length) return <div style={{padding:"20px",textAlign:"center",color:"#adb5bd",fontSize:"13px",border:"1px dashed #e1e3e5",borderRadius:"8px"}}>Nema kategorija označenih kao sprinkler.</div>;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+      {items.map((cat, i) => (
+        <div key={cat} draggable
+          onDragStart={()=>setDragIdx(i)}
+          onDragOver={e=>{e.preventDefault();setOverIdx(i);}}
+          onDragLeave={()=>setOverIdx(null)}
+          onDrop={()=>drop(i)}
+          onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+          style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",borderRadius:"8px",
+            background:overIdx===i?"#e8f0fe":dragIdx===i?"#f8f8f8":"white",
+            border:`1px solid ${overIdx===i?"#4285f4":"#e1e3e5"}`,
+            cursor:"grab",opacity:dragIdx===i?0.4:1,
+            boxShadow:dragIdx===i?"none":"0 1px 3px rgba(0,0,0,0.06)",
+            transition:"background 0.1s, border-color 0.1s"}}>
+          <span style={{color:"#bbb",fontSize:"16px",userSelect:"none",lineHeight:1}}>⠿</span>
+          <span style={{fontSize:"13px",fontWeight:700,color:"#adb5bd",minWidth:"22px"}}>{i+1}.</span>
+          <span style={{flex:1,fontSize:"14px",fontWeight:500,color:"#303030"}}>{cat}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Config Tab ─────────────────────────────────────────────────────────────
 function FallbackRow({ slotKey, label, chain, onChange }) {
   const [adding, setAdding] = useState("");
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
   const available = FALLBACK_OPTIONS.filter(o => o.value !== slotKey && !chain.includes(o.value));
   const labelFor = v => FALLBACK_OPTIONS.find(o => o.value === v)?.label || v;
-  function add() { if (adding) { onChange([...chain, adding]); setAdding(""); } }
+  function add(val) {
+    const v = val || adding;
+    if (v) { onChange([...chain, v]); setAdding(""); }
+  }
   function remove(i) { onChange(chain.filter((_,j) => j !== i)); }
-  function moveUp(i) { if (i===0) return; const c=[...chain]; [c[i-1],c[i]]=[c[i],c[i-1]]; onChange(c); }
-  function moveDown(i) { if (i===chain.length-1) return; const c=[...chain]; [c[i],c[i+1]]=[c[i+1],c[i]]; onChange(c); }
+  function onDrop(toIdx) {
+    if (dragIdx === null || dragIdx === toIdx) return;
+    const c = [...chain];
+    const [item] = c.splice(dragIdx, 1);
+    c.splice(toIdx, 0, item);
+    onChange(c);
+    setDragIdx(null); setOverIdx(null);
+  }
   return (
-    <div style={{display:"flex",alignItems:"flex-start",gap:"12px",flexWrap:"wrap",padding:"8px 0",borderBottom:"1px solid #f1f2f3"}}>
-      <div style={{minWidth:"110px",paddingTop:"5px",fontSize:"13px",fontWeight:600,color:"#303030",flexShrink:0}}>{label}</div>
-      <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"6px",flex:1}}>
-        {chain.length===0 && <span style={{fontSize:"12px",color:"#8c9196",fontStyle:"italic"}}>— nema fallback-a</span>}
+    <div style={{display:"grid",gridTemplateColumns:"100px 1fr",gap:"0",borderBottom:"1px solid #f1f2f3",minHeight:"44px"}}>
+      <div style={{padding:"10px 12px",fontSize:"13px",fontWeight:600,color:"#303030",display:"flex",alignItems:"center",borderRight:"1px solid #f1f2f3",background:"#fafbfb"}}>{label}</div>
+      <div style={{padding:"8px 12px",display:"flex",flexWrap:"wrap",alignItems:"center",gap:"5px"}}>
+        {chain.length===0 && <span style={{fontSize:"12px",color:"#adb5bd",fontStyle:"italic"}}>nema fallbacka</span>}
         {chain.map((v,i) => (
-          <span key={v} style={{display:"inline-flex",alignItems:"center",gap:"3px",padding:"3px 8px",borderRadius:"14px",background:"#f1f8ff",border:"1px solid #b3d4f5",fontSize:"12px",fontWeight:500,color:"#1a5276"}}>
-            <span style={{color:"#aaa",fontSize:"11px",marginRight:"2px"}}>{i+1}.</span>
+          <span key={v}
+            draggable onDragStart={()=>setDragIdx(i)} onDragOver={e=>{e.preventDefault();setOverIdx(i);}} onDragLeave={()=>setOverIdx(null)} onDrop={()=>onDrop(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+            style={{display:"inline-flex",alignItems:"center",gap:"4px",padding:"3px 10px 3px 8px",borderRadius:"20px",
+              background:overIdx===i?"#e8f0fe":dragIdx===i?"#f0f0f0":"#e8f5e9",
+              border:`1px solid ${overIdx===i?"#4285f4":dragIdx===i?"#ccc":"#a8d5a2"}`,
+              fontSize:"12px",fontWeight:500,color:"#1b5e20",cursor:"grab",opacity:dragIdx===i?0.5:1,transition:"all 0.1s"}}>
+            <span style={{color:"#81c784",fontSize:"11px",userSelect:"none"}}>⠿</span>
+            <span style={{color:"#9e9e9e",fontSize:"11px"}}>{i+1}.</span>
             {labelFor(v)}
-            {i>0 && <span onClick={()=>moveUp(i)} title="Gore" style={{cursor:"pointer",fontSize:"11px",color:"#666",padding:"0 2px"}}>↑</span>}
-            {i<chain.length-1 && <span onClick={()=>moveDown(i)} title="Dole" style={{cursor:"pointer",fontSize:"11px",color:"#666",padding:"0 2px"}}>↓</span>}
-            <span onClick={()=>remove(i)} title="Ukloni" style={{cursor:"pointer",fontSize:"13px",color:"#999",marginLeft:"2px"}}>×</span>
+            <span onClick={()=>remove(i)} style={{cursor:"pointer",fontSize:"14px",color:"#bbb",marginLeft:"2px",lineHeight:1}} title="Ukloni">×</span>
           </span>
         ))}
         {available.length>0 && (
-          <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
-            <select value={adding} onChange={e=>setAdding(e.target.value)}
-              style={{fontSize:"12px",padding:"3px 6px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",color:adding?"#303030":"#8c9196"}}>
-              <option value="">+ Dodaj...</option>
-              {available.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            {adding && <button onClick={add} style={{fontSize:"11px",padding:"3px 8px",borderRadius:"6px",background:"#008060",color:"white",border:"none",cursor:"pointer"}}>Dodaj</button>}
-          </div>
+          <select value={adding} onChange={e=>{setAdding(e.target.value);if(e.target.value)add(e.target.value);}}
+            style={{fontSize:"12px",padding:"3px 8px",borderRadius:"20px",border:"1px dashed #c9cccf",background:"white",color:"#6d7175",cursor:"pointer",outline:"none"}}>
+            <option value="">+ Dodaj</option>
+            {available.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         )}
       </div>
     </div>
@@ -1013,21 +1062,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset }) {
               Redoslijed kojim se kategorije aksesoara prikazuju. Kategorije se uzimaju iz onih označenih kao sprinkler u tabu Kategorije. Kategorije na vrhu imaju prednost.
             </Text>
           </VerticalStack>
-          <div style={{borderRadius:"8px",border:"1px solid #e1e3e5",overflow:"hidden"}}>
-            {accOrder.map((cat, i) => (
-              <div key={cat} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 12px",background:i%2===0?"white":"#fafbfb",borderBottom:i<accOrder.length-1?"1px solid #f1f2f3":"none"}}>
-                <span style={{fontSize:"12px",fontWeight:700,color:"#8c9196",minWidth:"20px",textAlign:"right"}}>{i+1}.</span>
-                <span style={{flex:1,fontSize:"14px"}}>{cat}</span>
-                <div style={{display:"flex",gap:"4px"}}>
-                  <button disabled={i===0} onClick={()=>setAccOrder(o=>{const a=[...o];[a[i-1],a[i]]=[a[i],a[i-1]];return a;})}
-                    style={{border:"1px solid #c9cccf",background:"white",borderRadius:"4px",padding:"2px 7px",cursor:i===0?"not-allowed":"pointer",opacity:i===0?0.4:1,fontSize:"13px"}}>↑</button>
-                  <button disabled={i===accOrder.length-1} onClick={()=>setAccOrder(o=>{const a=[...o];[a[i],a[i+1]]=[a[i+1],a[i]];return a;})}
-                    style={{border:"1px solid #c9cccf",background:"white",borderRadius:"4px",padding:"2px 7px",cursor:i===accOrder.length-1?"not-allowed":"pointer",opacity:i===accOrder.length-1?0.4:1,fontSize:"13px"}}>↓</button>
-                </div>
-              </div>
-            ))}
-            {accOrder.length===0 && <div style={{padding:"12px",color:"#8c9196",fontSize:"14px",textAlign:"center"}}>Nema definisanih kategorija aksesoara.</div>}
-          </div>
+          <AccPriorityList items={accOrder} onChange={setAccOrder} />
         </VerticalStack>
       </Card>
 
