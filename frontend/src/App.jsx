@@ -620,53 +620,30 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
             <Text tone="subdued" variant="bodySm">Preporučeno između 02:00 i 05:00 — najmanji promet.</Text>
           </VerticalStack>
 
-          {/* Sat */}
-          <VerticalStack gap="200">
-            <Text variant="bodySm" fontWeight="semibold">Sat</Text>
-            <div style={{display:"flex", gap:"6px", flexWrap:"wrap"}}>
-              {Array.from({length:24}, (_,i) => (
-                <div
-                  key={i}
-                  onClick={() => setCfg(c => ({...c, hour: i}))}
-                  style={{
-                    width:"42px", height:"36px", borderRadius:"8px",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer", fontSize:"13px", fontWeight: h===i ? 700 : 400,
-                    border:`2px solid ${h===i ? "#1a6b3a" : "#e1e3e5"}`,
-                    background: h===i ? "#eaf7ee" : (i>=2&&i<=5 ? "#f9fafb" : "white"),
-                    color: h===i ? "#1a6b3a" : "#202223",
-                    transition:"all 0.1s",
-                  }}
-                >
-                  {String(i).padStart(2,"0")}
-                </div>
-              ))}
-            </div>
-          </VerticalStack>
-
-          {/* Minute */}
-          <VerticalStack gap="200">
-            <Text variant="bodySm" fontWeight="semibold">Minute</Text>
-            <div style={{display:"flex", gap:"6px", flexWrap:"wrap"}}>
-              {[0,5,10,15,20,25,30,35,40,45,50,55].map(m => (
-                <div
-                  key={m}
-                  onClick={() => setCfg(c => ({...c, minute: m}))}
-                  style={{
-                    width:"48px", height:"36px", borderRadius:"8px",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer", fontSize:"13px", fontWeight: min===m ? 700 : 400,
-                    border:`2px solid ${min===m ? "#1a6b3a" : "#e1e3e5"}`,
-                    background: min===m ? "#eaf7ee" : "white",
-                    color: min===m ? "#1a6b3a" : "#202223",
-                    transition:"all 0.1s",
-                  }}
-                >
-                  :{String(m).padStart(2,"0")}
-                </div>
-              ))}
-            </div>
-          </VerticalStack>
+          {/* Sat + Minute — padajuće liste */}
+          <FormLayout>
+            <FormLayout.Group condensed>
+              <Select
+                label="Sat"
+                options={Array.from({length:24}, (_,i) => ({
+                  label: `${String(i).padStart(2,"0")}:00${i>=2&&i<=5?" ✓":""}`,
+                  value: String(i),
+                }))}
+                value={String(h)}
+                onChange={v => setCfg(c => ({...c, hour: parseInt(v)}))}
+                helpText="Preporučeno: 02 – 05h"
+              />
+              <Select
+                label="Minute"
+                options={[0,5,10,15,20,25,30,35,40,45,50,55].map(m => ({
+                  label: `:${String(m).padStart(2,"0")}`,
+                  value: String(m),
+                }))}
+                value={String(min)}
+                onChange={v => setCfg(c => ({...c, minute: parseInt(v)}))}
+              />
+            </FormLayout.Group>
+          </FormLayout>
 
           {/* Preview */}
           <div style={{
@@ -765,7 +742,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
           <VerticalStack gap="100">
             <Text as="h3" variant="headingSm">Penali diversifikacije</Text>
             <Text tone="subdued" variant="bodySm">
-              Penalty &gt; 12 = nikad isti zaredom. Veći broj = stroža diversifikacija.
+              Score raspon je 0–12. Penalty &gt; 12 = nikad isti na toj poziciji. Relax mehanizam automatski popušta ako nema alternative.
             </Text>
           </VerticalStack>
 
@@ -774,29 +751,53 @@ function ConfigTab({ config, title, onSave, onReset }) {
               <thead>
                 <tr style={{borderBottom:"2px solid #e1e3e5"}}>
                   <th style={{textAlign:"left",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>Atribut</th>
-                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>prev1</th>
-                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>prev2</th>
-                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>prev3</th>
+                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>
+                    <div>prev1</div>
+                    <div style={{fontWeight:400,fontSize:"10px",textTransform:"none",color:"#8c9196"}}>odmah prethodni</div>
+                  </th>
+                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>
+                    <div>prev2</div>
+                    <div style={{fontWeight:400,fontSize:"10px",textTransform:"none",color:"#8c9196"}}>2 pozicije ranije</div>
+                  </th>
+                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>
+                    <div>prev3</div>
+                    <div style={{fontWeight:400,fontSize:"10px",textTransform:"none",color:"#8c9196"}}>3 pozicije ranije</div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { label:"Kategorija", k1:"penaltySameCategory",   k2:"penaltyInLast2Category", k3:"penaltyInLast3Category" },
-                  { label:"Boja",       k1:"penaltySameColor",      k2:"penaltyInLast2Color",    k3:"penaltyInLast3Color" },
-                  { label:"Tip",        k1:"penaltySameType",       k2:"penaltyInLast2Type",     k3:"penaltyInLast3Type" },
+                  { label:"Kategorija", desc:"npr. Jakne, Majice", k1:"penaltySameCategory",   k2:"penaltyInLast2Category", k3:"penaltyInLast3Category" },
+                  { label:"Boja",       desc:"boja proizvoda",     k1:"penaltySameColor",      k2:"penaltyInLast2Color",    k3:"penaltyInLast3Color" },
+                  { label:"Tip",        desc:"Žene / Muškarci...", k1:"penaltySameType",       k2:"penaltyInLast2Type",     k3:"penaltyInLast3Type" },
                 ].map((row, i) => (
                   <tr key={row.label} style={{background:i%2===0?"#fafbfb":"white",borderBottom:"1px solid #f1f2f3"}}>
-                    <td style={{padding:"8px 12px",fontWeight:500}}>{row.label}</td>
-                    {[row.k1, row.k2, row.k3].map(k => (
-                      <td key={k} style={{padding:"6px 12px",textAlign:"center"}}>
-                        <input
-                          type="number" min="0" step="1"
-                          value={cfg[k] ?? ""}
-                          onChange={e=>setNum(k, e.target.value)}
-                          style={{width:"60px",textAlign:"center",border:"1px solid #c9cccf",borderRadius:"6px",padding:"5px 6px",fontSize:"14px"}}
-                        />
-                      </td>
-                    ))}
+                    <td style={{padding:"8px 12px"}}>
+                      <div style={{fontWeight:600}}>{row.label}</div>
+                      <div style={{fontSize:"11px",color:"#8c9196"}}>{row.desc}</div>
+                    </td>
+                    {[row.k1, row.k2, row.k3].map(k => {
+                      const v = cfg[k] ?? 0;
+                      const isNever = v > 12;
+                      return (
+                        <td key={k} style={{padding:"6px 12px",textAlign:"center"}}>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"3px"}}>
+                            <input
+                              type="number" min="0" step="0.5"
+                              value={v}
+                              onChange={e=>setNum(k, e.target.value)}
+                              style={{
+                                width:"60px",textAlign:"center",fontSize:"14px",
+                                border:`1px solid ${isNever?"#f0a0a0":"#c9cccf"}`,
+                                borderRadius:"6px",padding:"5px 6px",
+                                background: isNever?"#fff0f0":"white",
+                              }}
+                            />
+                            {isNever && <span style={{fontSize:"10px",color:"#d72c0d",fontWeight:600}}>NIKAD</span>}
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

@@ -1,19 +1,21 @@
 module.exports = {
-  penaltySameCategory    : 14,
-  penaltySameColor       : 8,
-  penaltySameType        : 4,
-  penaltyInLast2Category : 5,
-  penaltyInLast2Color    : 3,
-  penaltyInLast2Type     : 1.5,
-  penaltyInLast3Category : 1.5,
-  penaltyInLast3Color    : 1,
-  penaltyInLast3Type     : 0.5,
-  penaltyInLast4Category : 1.0,
-  penaltyInLast4Color    : 0.5,
+  // Penali diversifikacije — score raspon je 0–12
+  // >12 = nikad isti na toj poziciji | relax mehanizam automatski popušta ako nema alternative
+  penaltySameCategory    : 14,   // prev1 — nikad ista kategorija odmah iza (najvažniji)
+  penaltySameColor       : 10,   // prev1 — boja je vizuelno najuočljivija
+  penaltySameType        : 5,    // prev1 — tip (Žene/Muškarci) — stranica već alternira polove
+  penaltyInLast2Category : 7,    // prev2 — jaka deterenca (ista kat. na pos. 1 i 3 je dosadno)
+  penaltyInLast2Color    : 5,    // prev2
+  penaltyInLast2Type     : 2,    // prev2
+  penaltyInLast3Category : 3,    // prev3 — lagana deterenca
+  penaltyInLast3Color    : 2,    // prev3
+  penaltyInLast3Type     : 0.8,  // prev3
+  penaltyInLast4Category : 1.5,  // prev4 — samo blago smanjuje šansu
+  penaltyInLast4Color    : 1.0,
   penaltyInLast4Type     : 0.3,
-  penaltyInLast5Category : 0.5,
+  penaltyInLast5Category : 0.5,  // prev5 — gotovo zanemarivo
   penaltyInLast5Color    : 0.3,
-  penaltyInLast5Type     : 0.2,
+  penaltyInLast5Type     : 0.1,
   relaxStep      : 0.80,
   minRelaxFactor : 0.20,
   enableLookahead  : true,
