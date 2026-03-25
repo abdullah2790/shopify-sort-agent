@@ -676,7 +676,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
           </div>
           {/* Toggle */}
           <div
-            onClick={() => { setCfg(c => ({...c, enabled: !c.enabled})); setIsDirty(true); onDirtyChange(true); }}
+            onClick={() => { setCfg(c => ({...c, enabled: !c.enabled})); }}
             style={{
               width:"52px", height:"28px", borderRadius:"14px", cursor:"pointer",
               background: cfg.enabled ? "#1a6b3a" : "#c9cccf",
@@ -702,7 +702,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
             {intervalOptions.map(opt => (
               <div
                 key={opt.value}
-                onClick={() => { setCfg(c => ({...c, intervalDays: parseInt(opt.value)})); setIsDirty(true); onDirtyChange(true); }}
+                onClick={() => { setCfg(c => ({...c, intervalDays: parseInt(opt.value)})); }}
                 style={{
                   padding:"10px 18px", borderRadius:"10px", cursor:"pointer",
                   border:`2px solid ${String(cfg.intervalDays||1) === opt.value ? "#1a6b3a" : "#e1e3e5"}`,
@@ -737,7 +737,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
                   value: String(i),
                 }))}
                 value={String(h)}
-                onChange={v => { setCfg(c => ({...c, hour: parseInt(v)})); setIsDirty(true); onDirtyChange(true); }}
+                onChange={v => { setCfg(c => ({...c, hour: parseInt(v)})); }}
                 helpText="Preporučeno: 02 – 05h"
               />
               <Select
@@ -747,7 +747,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
                   value: String(m),
                 }))}
                 value={String(min)}
-                onChange={v => { setCfg(c => ({...c, minute: parseInt(v)})); setIsDirty(true); onDirtyChange(true); }}
+                onChange={v => { setCfg(c => ({...c, minute: parseInt(v)})); }}
               />
             </FormLayout.Group>
           </FormLayout>
@@ -927,15 +927,15 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
 
   function addBanned(val) {
     const trimmed = val.trim();
-    if (trimmed && !bannedList.includes(trimmed)) { setBannedList(l => [...l, trimmed]); setIsDirty(true); onDirtyChange(true); }
+    if (trimmed && !bannedList.includes(trimmed)) { setBannedList(l => [...l, trimmed]); }
     setBannedTyping("");
   }
-  function removeBanned(item) { setBannedList(l => l.filter(x => x !== item)); setIsDirty(true); onDirtyChange(true); }
+  function removeBanned(item) { setBannedList(l => l.filter(x => x !== item)); }
 
   function num(key) { return String(cfg[key] ?? ""); }
-  function setNum(key, val) { setCfg(c=>({...c,[key]:parseFloat(val)||0})); setIsDirty(true); onDirtyChange(true); }
-  function setPageNum(key, val) { setCfg(c=>({...c,[key]:Math.max(0, parseInt(val)||0)})); setIsDirty(true); onDirtyChange(true); }
-  function setStr(key, val) { setCfg(c=>({...c,[key]:val})); setIsDirty(true); onDirtyChange(true); }
+  function setNum(key, val) { setCfg(c=>({...c,[key]:parseFloat(val)||0})); }
+  function setPageNum(key, val) { setCfg(c=>({...c,[key]:Math.max(0, parseInt(val)||0)})); }
+  function setStr(key, val) { setCfg(c=>({...c,[key]:val})); }
 
   const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0) + (cfg.maleAccessoriesPerPage||0) + (cfg.femaleAccessoriesPerPage||0);
   const pageTotalValid = pageTotal === 24;
@@ -1141,7 +1141,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
               Redoslijed kojim se kategorije aksesoara prikazuju. Kategorije se uzimaju iz onih označenih kao sprinkler u tabu Kategorije. Kategorije na vrhu imaju prednost.
             </Text>
           </VerticalStack>
-          <AccPriorityList items={accOrder} onChange={(val) => { setAccOrder(val); setIsDirty(true); onDirtyChange(true); }} />
+          <AccPriorityList items={accOrder} onChange={(val) => { setAccOrder(val); }} />
         </VerticalStack>
       </Card>
 
@@ -1172,7 +1172,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
               ].map(({key, label}) => (
                 <FallbackRow key={key} slotKey={key} label={label}
                   chain={fallbacks[key] || []}
-                  onChange={chain => { setFallbacks(f => ({...f, [key]: chain})); setIsDirty(true); onDirtyChange(true); }}
+                  onChange={chain => { setFallbacks(f => ({...f, [key]: chain})); }}
                 />
               ))}
             </div>
@@ -1493,7 +1493,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
         r.name === name ? { ...r, [field]: parseInt(val) || 0 } : r
       ),
     }));
-    setIsDirty(true); onDirtyChange(true);
   }
 
   const ranges = cfg.ranges || DEFAULT_WEATHER_RANGES;
@@ -1557,13 +1556,13 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
               label="Vremenska prognoza"
               options={[{label:"Isključena",value:"off"},{label:"Uključena — koristi temperaturu umjesto kalendarske sezone",value:"on"}]}
               value={cfg.enabled ? "on" : "off"}
-              onChange={v => { setCfg(c => ({...c, enabled: v==="on"})); setIsDirty(true); onDirtyChange(true); }}
+              onChange={v => { setCfg(c => ({...c, enabled: v==="on"})); }}
             />
             <FormLayout.Group>
               <TextField
                 label="Grad"
                 value={cfg.city || ""}
-                onChange={v => { setCfg(c => ({...c, city: v})); setIsDirty(true); onDirtyChange(true); }}
+                onChange={v => { setCfg(c => ({...c, city: v})); }}
                 placeholder="npr. Sarajevo"
                 helpText="Grad za koji se čita prognoza (wttr.in)."
               />
@@ -1571,7 +1570,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
                 label="Sat automatskog čitanja"
                 options={hourOptions}
                 value={String(cfg.readHour ?? 6)}
-                onChange={v => { setCfg(c => ({...c, readHour: parseInt(v)})); setIsDirty(true); onDirtyChange(true); }}
+                onChange={v => { setCfg(c => ({...c, readHour: parseInt(v)})); }}
                 helpText="Prognoza se automatski čita u ovom satu (i pred svako cron sortiranje)."
               />
             </FormLayout.Group>
