@@ -35,6 +35,7 @@ function sortProducts(products, config={}) {
   const PEN={c:cfg.penaltySameCategory,col:cfg.penaltySameColor,t:cfg.penaltySameType,c2:cfg.penaltyInLast2Category,col2:cfg.penaltyInLast2Color,t2:cfg.penaltyInLast2Type,c3:cfg.penaltyInLast3Category,col3:cfg.penaltyInLast3Color,t3:cfg.penaltyInLast3Type,c4:cfg.penaltyInLast4Category,col4:cfg.penaltyInLast4Color,t4:cfg.penaltyInLast4Type,c5:cfg.penaltyInLast5Category,col5:cfg.penaltyInLast5Color,t5:cfg.penaltyInLast5Type};
   let relax=1.0;
   const out=[];
+  const flatMode=(cfg.maleAccessoriesPerPage??0)+(cfg.femaleAccessoriesPerPage??0)>=24;
 
   function banned(it){return out.length<cfg.banTopN&&BANNED.has(it.normCategory);}
   function sc(it){
@@ -45,7 +46,7 @@ function sortProducts(products, config={}) {
     if(p3){if(it.category===p3.category)pen+=PEN.c3*relax;if(it.color===p3.color)pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}
     if(p4){if(it.category===p4.category)pen+=PEN.c4*relax;if(it.color===p4.color)pen+=PEN.col4*relax;if(it.type===p4.type)pen+=PEN.t4*relax;}
     if(p5){if(it.category===p5.category)pen+=PEN.c5*relax;if(it.color===p5.color)pen+=PEN.col5*relax;if(it.type===p5.type)pen+=PEN.t5*relax;}
-    return it.score-pen+(Math.random()-0.5)*cfg.jitter;
+    return (flatMode?0:it.score)-pen+(Math.random()-0.5)*cfg.jitter;
   }
   function best(pool){
     if(!pool.length)return null;
