@@ -73,6 +73,8 @@ function SortApp() {
   const [previewModal, setPreviewModal] = useState(null);
   const [addingAll, setAddingAll] = useState(false);
   const [confirmAddAll, setConfirmAddAll] = useState(false);
+  const [dirtyTabs, setDirtyTabs] = useState({});
+  function markTabDirty(tabIdx, dirty) { setDirtyTabs(d => ({...d, [tabIdx]: dirty})); }
 
   // Ref na trenutne scoreve kategorija — za auto-save
   const catScoresRef = useRef({});
@@ -218,10 +220,10 @@ function SortApp() {
 
   const tabs = [
     { id:"collections", content:"Kolekcije" },
-    { id:"categories",  content:`Kategorije (${categories.length})` },
-    { id:"config",      content:"Opće postavke" },
-    { id:"schedule",    content:"Raspored" },
-    { id:"weather",     content:"Prognoza" },
+    { id:"categories",  content:`Kategorije (${categories.length})${dirtyTabs[1]?" ●":""}` },
+    { id:"config",      content:`Opće postavke${dirtyTabs[2]?" ●":""}` },
+    { id:"schedule",    content:`Raspored${dirtyTabs[3]?" ●":""}` },
+    { id:"weather",     content:`Prognoza${dirtyTabs[4]?" ●":""}` },
     { id:"logs",        content:"Logovi" },
   ];
 
@@ -239,7 +241,10 @@ function SortApp() {
         {error   && <Banner tone="critical" onDismiss={()=>setError(null)}><p>{error}</p></Banner>}
         {success && <Banner tone="success"  onDismiss={()=>setSuccess(null)}><p>{success}</p></Banner>}
 
-        <Tabs tabs={tabs} selected={tab} onSelect={setTab} />
+        <Tabs tabs={tabs} selected={tab} onSelect={(newTab) => {
+          if (dirtyTabs[tab] && !window.confirm("Imate nesačuvane promjene. Da li sigurno želite da napustite ovaj tab?")) return;
+          setTab(newTab);
+        }} />
 
         {/* ── Tab 0: Kolekcije ── */}
         {tab===0 && (
@@ -312,6 +317,7 @@ function SortApp() {
             onSaved={loadData}
             onError={setError}
             onSuccess={setSuccess}
+            onDirtyChange={(dirty) => markTabDirty(1, dirty)}
           />
         )}
 
@@ -325,6 +331,7 @@ function SortApp() {
               const r = await fetch("/api/config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, config:cfg}) });
               const d = await r.json(); setShopConfig(d.config); setSuccess("✅ Postavke sačuvane!");
             }}
+            onDirtyChange={(dirty) => markTabDirty(2, dirty)}
           />
         )}
 
@@ -335,6 +342,7 @@ function SortApp() {
             shop={shop}
             onSaved={(s) => { setSchedule(s); setSuccess("✅ Raspored sačuvan!"); }}
             onError={setError}
+            onDirtyChange={(dirty) => markTabDirty(3, dirty)}
           />
         )}
 
@@ -346,6 +354,7 @@ function SortApp() {
             onSaved={(cfg) => setWeatherConfig(cfg)}
             onError={setError}
             onSuccess={setSuccess}
+            onDirtyChange={(dirty) => markTabDirty(4, dirty)}
           />
         )}
 
@@ -440,7 +449,7 @@ function SortApp() {
 }
 
 // ── Kategorije Tab ─────────────────────────────────────────────────────────
-function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, onError, onSuccess }) {
+function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, onError, onSuccess, onDirtyChange = () => {} }) {
   const [scores, setScores] = useState(() => {
     const m = {};
     for (const c of categories) m[c.handle] = { ...c.season_scores };
@@ -452,6 +461,7 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
     return m;
   });
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     const m = {};
@@ -462,6 +472,7 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
     for (const c of categories) sp[c.handle] = c.is_sprinkler || false;
     setSprinklers(sp);
     sprinklersRef.current = sp;
+    setIsDirty(false);
   }, [categories, scoresRef, sprinklersRef]);
 
   function setScore(handle, rang, val) {
@@ -470,6 +481,7 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
       scoresRef.current = next;
       return next;
     });
+    setIsDirty(true); onDirtyChange(true);
   }
 
   function toggleSprinkler(handle) {
@@ -478,6 +490,7 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
       sprinklersRef.current = next;
       return next;
     });
+    setIsDirty(true); onDirtyChange(true);
   }
 
   async function handleSave() {
@@ -486,6 +499,7 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
       const arr = Object.entries(scores).map(([handle, season_scores]) => ({ handle, season_scores, is_sprinkler: sprinklers[handle] || false }));
       await fetch("/api/categories/scores", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, scores:arr}) });
       onSuccess("✅ Sezonski scorevi sačuvani!");
+      setIsDirty(false); onDirtyChange(false);
     } catch { onError("Greška pri čuvanju."); }
     finally { setSaving(false); }
   }
@@ -502,6 +516,8 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
   );
 
   return (
+    <VerticalStack gap="400">
+      <UnsavedBanner show={isDirty} />
     <Card>
       <VerticalStack gap="400">
         <HorizontalStack align="space-between">
@@ -567,13 +583,17 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
         </HorizontalStack>
       </VerticalStack>
     </Card>
+    </VerticalStack>
   );
 }
 
 // ── Schedule Tab ───────────────────────────────────────────────────────────
-function ScheduleTab({ schedule, shop, onSaved, onError }) {
+function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {} }) {
   const [cfg, setCfg]       = useState({ ...schedule });
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => { setCfg({ ...schedule }); setIsDirty(false); onDirtyChange(false); }, [schedule]);
 
   const intervalOptions = [
     { label:"Svaki dan",       value:"1", icon:"📅" },
@@ -592,6 +612,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
       const res = await fetch("/api/schedule", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, schedule:cfg}) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || `HTTP ${res.status}`); }
       onSaved(cfg);
+      setIsDirty(false); onDirtyChange(false);
     } catch (e) { onError(e.message || "Greška pri čuvanju rasporeda."); }
     finally { setSaving(false); }
   }
@@ -628,7 +649,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
           </div>
           {/* Toggle */}
           <div
-            onClick={() => setCfg(c => ({...c, enabled: !c.enabled}))}
+            onClick={() => { setCfg(c => ({...c, enabled: !c.enabled})); setIsDirty(true); onDirtyChange(true); }}
             style={{
               width:"52px", height:"28px", borderRadius:"14px", cursor:"pointer",
               background: cfg.enabled ? "#1a6b3a" : "#c9cccf",
@@ -654,7 +675,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
             {intervalOptions.map(opt => (
               <div
                 key={opt.value}
-                onClick={() => setCfg(c => ({...c, intervalDays: parseInt(opt.value)}))}
+                onClick={() => { setCfg(c => ({...c, intervalDays: parseInt(opt.value)})); setIsDirty(true); onDirtyChange(true); }}
                 style={{
                   padding:"10px 18px", borderRadius:"10px", cursor:"pointer",
                   border:`2px solid ${String(cfg.intervalDays||1) === opt.value ? "#1a6b3a" : "#e1e3e5"}`,
@@ -689,7 +710,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
                   value: String(i),
                 }))}
                 value={String(h)}
-                onChange={v => setCfg(c => ({...c, hour: parseInt(v)}))}
+                onChange={v => { setCfg(c => ({...c, hour: parseInt(v)})); setIsDirty(true); onDirtyChange(true); }}
                 helpText="Preporučeno: 02 – 05h"
               />
               <Select
@@ -699,7 +720,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
                   value: String(m),
                 }))}
                 value={String(min)}
-                onChange={v => setCfg(c => ({...c, minute: parseInt(v)}))}
+                onChange={v => { setCfg(c => ({...c, minute: parseInt(v)})); setIsDirty(true); onDirtyChange(true); }}
               />
             </FormLayout.Group>
           </FormLayout>
@@ -721,10 +742,22 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
         </VerticalStack>
       </Card>
 
+      <UnsavedBanner show={isDirty} />
       <HorizontalStack align="end">
         <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj raspored</Button>
       </HorizontalStack>
     </VerticalStack>
+  );
+}
+
+// ── Unsaved changes banner ──────────────────────────────────────────────────
+function UnsavedBanner({ show }) {
+  if (!show) return null;
+  return (
+    <div style={{background:"#fff8e1",border:"1px solid #ffc107",borderRadius:"8px",padding:"10px 16px",display:"flex",alignItems:"center",gap:"8px",fontSize:"13px",fontWeight:500,color:"#7a4f00"}}>
+      <span style={{fontSize:"16px"}}>⚠</span>
+      Imate nesačuvane promjene — kliknite Sačuvaj da biste ih zadržali.
+    </div>
   );
 }
 
@@ -823,9 +856,10 @@ function normalizeWeights(c) {
   return r;
 }
 
-function ConfigTab({ config, categories = [], title, onSave, onReset }) {
+function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyChange = () => {} }) {
   const [cfg, setCfg]         = useState(normalizeWeights({ ...config }));
   const [saving, setSaving]   = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
@@ -845,19 +879,20 @@ function ConfigTab({ config, categories = [], title, onSave, onReset }) {
     setBannedList(config.bannedCategoriesTopN || []);
     setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
     setAccOrder(initAccOrder(config.accessoryCategoryOrder));
+    setIsDirty(false); onDirtyChange(false);
   }, [config, categories]);
 
   function addBanned(val) {
     const trimmed = val.trim();
-    if (trimmed && !bannedList.includes(trimmed)) setBannedList(l => [...l, trimmed]);
+    if (trimmed && !bannedList.includes(trimmed)) { setBannedList(l => [...l, trimmed]); setIsDirty(true); onDirtyChange(true); }
     setBannedTyping("");
   }
-  function removeBanned(item) { setBannedList(l => l.filter(x => x !== item)); }
+  function removeBanned(item) { setBannedList(l => l.filter(x => x !== item)); setIsDirty(true); onDirtyChange(true); }
 
   function num(key) { return String(cfg[key] ?? ""); }
-  function setNum(key, val) { setCfg(c=>({...c,[key]:parseFloat(val)||0})); }
-  function setPageNum(key, val) { setCfg(c=>({...c,[key]:Math.max(0, parseInt(val)||0)})); }
-  function setStr(key, val) { setCfg(c=>({...c,[key]:val})); }
+  function setNum(key, val) { setCfg(c=>({...c,[key]:parseFloat(val)||0})); setIsDirty(true); onDirtyChange(true); }
+  function setPageNum(key, val) { setCfg(c=>({...c,[key]:Math.max(0, parseInt(val)||0)})); setIsDirty(true); onDirtyChange(true); }
+  function setStr(key, val) { setCfg(c=>({...c,[key]:val})); setIsDirty(true); onDirtyChange(true); }
 
   const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0) + (cfg.maleAccessoriesPerPage||0) + (cfg.femaleAccessoriesPerPage||0);
   const pageTotalValid = pageTotal === 24;
@@ -867,6 +902,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset }) {
     setSaving(true);
     await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder });
     setSaving(false);
+    setIsDirty(false); onDirtyChange(false);
   }
 
   return (
@@ -1062,7 +1098,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset }) {
               Redoslijed kojim se kategorije aksesoara prikazuju. Kategorije se uzimaju iz onih označenih kao sprinkler u tabu Kategorije. Kategorije na vrhu imaju prednost.
             </Text>
           </VerticalStack>
-          <AccPriorityList items={accOrder} onChange={setAccOrder} />
+          <AccPriorityList items={accOrder} onChange={(val) => { setAccOrder(val); setIsDirty(true); onDirtyChange(true); }} />
         </VerticalStack>
       </Card>
 
@@ -1093,7 +1129,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset }) {
               ].map(({key, label}) => (
                 <FallbackRow key={key} slotKey={key} label={label}
                   chain={fallbacks[key] || []}
-                  onChange={chain => setFallbacks(f => ({...f, [key]: chain}))}
+                  onChange={chain => { setFallbacks(f => ({...f, [key]: chain})); setIsDirty(true); onDirtyChange(true); }}
                 />
               ))}
             </div>
@@ -1187,6 +1223,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset }) {
         </VerticalStack>
       </Card>
 
+      <UnsavedBanner show={isDirty} />
       <HorizontalStack align="space-between">
         {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>}
         <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid}>Sačuvaj postavke</Button>
@@ -1346,13 +1383,15 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
 // ── Weather Tab ────────────────────────────────────────────────────────────
 // Koristimo isti RANG_INFO koji se koristi i u Kategorijama
 
-function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
+function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyChange = () => {} }) {
   const [cfg, setCfg]   = useState({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
   const [saving, setSaving]   = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [reading, setReading] = useState(false);
 
   useEffect(() => {
     setCfg({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
+    setIsDirty(false); onDirtyChange(false);
   }, [weatherConfig]);
 
   const hourOptions = Array.from({length:24}, (_,i) => ({
@@ -1372,6 +1411,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
       if (!r.ok) throw new Error((await r.json()).error || "Greška");
       onSuccess("✅ Postavke prognoze sačuvane!");
       onSaved(cfg);
+      setIsDirty(false); onDirtyChange(false);
     } catch(e) { onError(e.message); }
     finally { setSaving(false); }
   }
@@ -1401,6 +1441,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
         r.name === name ? { ...r, [field]: parseInt(val) || 0 } : r
       ),
     }));
+    setIsDirty(true); onDirtyChange(true);
   }
 
   const ranges = cfg.ranges || DEFAULT_WEATHER_RANGES;
@@ -1464,13 +1505,13 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
               label="Vremenska prognoza"
               options={[{label:"Isključena",value:"off"},{label:"Uključena — koristi temperaturu umjesto kalendarske sezone",value:"on"}]}
               value={cfg.enabled ? "on" : "off"}
-              onChange={v => setCfg(c => ({...c, enabled: v==="on"}))}
+              onChange={v => { setCfg(c => ({...c, enabled: v==="on"})); setIsDirty(true); onDirtyChange(true); }}
             />
             <FormLayout.Group>
               <TextField
                 label="Grad"
                 value={cfg.city || ""}
-                onChange={v => setCfg(c => ({...c, city: v}))}
+                onChange={v => { setCfg(c => ({...c, city: v})); setIsDirty(true); onDirtyChange(true); }}
                 placeholder="npr. Sarajevo"
                 helpText="Grad za koji se čita prognoza (wttr.in)."
               />
@@ -1478,7 +1519,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
                 label="Sat automatskog čitanja"
                 options={hourOptions}
                 value={String(cfg.readHour ?? 6)}
-                onChange={v => setCfg(c => ({...c, readHour: parseInt(v)}))}
+                onChange={v => { setCfg(c => ({...c, readHour: parseInt(v)})); setIsDirty(true); onDirtyChange(true); }}
                 helpText="Prognoza se automatski čita u ovom satu (i pred svako cron sortiranje)."
               />
             </FormLayout.Group>
@@ -1547,6 +1588,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
         </VerticalStack>
       </Card>
 
+      <UnsavedBanner show={isDirty} />
       <HorizontalStack align="space-between">
         <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim()}>
           Čitaj prognozu sada
