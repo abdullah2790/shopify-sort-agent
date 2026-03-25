@@ -671,11 +671,22 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
 
 // ── Config Tab ─────────────────────────────────────────────────────────────
 function ConfigTab({ config, title, onSave, onReset }) {
-  const [cfg, setCfg]       = useState({ ...config });
-  const [saving, setSaving] = useState(false);
-  const [bannedInput, setBannedInput] = useState((config.bannedCategoriesTopN||[]).join(", "));
+  const [cfg, setCfg]         = useState({ ...config });
+  const [saving, setSaving]   = useState(false);
+  const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
+  const [bannedTyping, setBannedTyping] = useState("");
 
-  useEffect(() => { setCfg({ ...config }); setBannedInput((config.bannedCategoriesTopN||[]).join(", ")); }, [config]);
+  useEffect(() => {
+    setCfg({ ...config });
+    setBannedList(config.bannedCategoriesTopN || []);
+  }, [config]);
+
+  function addBanned(val) {
+    const trimmed = val.trim();
+    if (trimmed && !bannedList.includes(trimmed)) setBannedList(l => [...l, trimmed]);
+    setBannedTyping("");
+  }
+  function removeBanned(item) { setBannedList(l => l.filter(x => x !== item)); }
 
   function num(key) { return String(cfg[key] ?? ""); }
   function setNum(key, val) { setCfg(c=>({...c,[key]:parseFloat(val)||0})); }
@@ -688,8 +699,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
   async function handleSave() {
     if (!pageTotalValid) return;
     setSaving(true);
-    const banned = bannedInput.split(",").map(s=>s.trim()).filter(Boolean);
-    await onSave({ ...cfg, bannedCategoriesTopN: banned });
+    await onSave({ ...cfg, bannedCategoriesTopN: bannedList });
     setSaving(false);
   }
 
@@ -806,27 +816,132 @@ function ConfigTab({ config, title, onSave, onReset }) {
         </VerticalStack>
       </Card>
 
-      {/* Zabranjene kategorije i tuning */}
+      {/* Zabranjene kategorije */}
       <Card>
         <VerticalStack gap="400">
           <VerticalStack gap="100">
-            <Text as="h3" variant="headingSm">Zabranjene kategorije i fino podešavanje</Text>
-            <Text tone="subdued" variant="bodySm">Kategorije koje se ne prikazuju na vrhu, te parametri za podešavanje algoritma.</Text>
+            <Text as="h3" variant="headingSm">Zabranjene kategorije</Text>
+            <Text tone="subdued" variant="bodySm">
+              Ove kategorije se ne pojavljuju na prvih <strong>{cfg.banTopN || 24}</strong> pozicija (= prva stranica).
+              Korisno za setove, potkošulje i slično što ne treba biti istaknuto.
+            </Text>
           </VerticalStack>
-          <FormLayout>
-            <TextField
-              label="Zabranjene kategorije"
-              value={bannedInput}
-              onChange={setBannedInput}
-              placeholder="Setovi, Potkošulje"
-              helpText="Unesi nazive kategorija odvojene zarezom."
+
+          {/* Tag input */}
+          <div style={{
+            display:"flex", flexWrap:"wrap", gap:"8px", alignItems:"center",
+            padding:"10px 12px", borderRadius:"8px",
+            border:"1px solid #c9cccf", background:"white", minHeight:"48px",
+            cursor:"text",
+          }}
+            onClick={() => document.getElementById("banned-input")?.focus()}
+          >
+            {bannedList.map(item => (
+              <span key={item} style={{
+                display:"inline-flex", alignItems:"center", gap:"5px",
+                padding:"3px 10px", borderRadius:"14px",
+                background:"#fff0c2", border:"1px solid #e8c84a",
+                fontSize:"13px", fontWeight:500, color:"#5c4a00",
+              }}>
+                {item}
+                <span
+                  onClick={e => { e.stopPropagation(); removeBanned(item); }}
+                  style={{cursor:"pointer", fontSize:"14px", color:"#8c6e00", lineHeight:1}}
+                >×</span>
+              </span>
+            ))}
+            <input
+              id="banned-input"
+              value={bannedTyping}
+              onChange={e => {
+                const v = e.target.value;
+                if (v.endsWith(",")) { addBanned(v.slice(0,-1)); return; }
+                setBannedTyping(v);
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter") { e.preventDefault(); addBanned(bannedTyping); }
+                if (e.key === "Backspace" && !bannedTyping && bannedList.length) removeBanned(bannedList[bannedList.length-1]);
+              }}
+              placeholder={bannedList.length ? "" : "Upiši naziv kategorije i pritisni Enter..."}
+              style={{
+                border:"none", outline:"none", fontSize:"14px",
+                flex:1, minWidth:"180px", padding:"2px 0", background:"transparent",
+              }}
             />
+          </div>
+          <Text tone="subdued" variant="bodySm">
+            Pritisni <strong>Enter</strong> ili <strong>zarez</strong> da dodaš · <strong>Backspace</strong> da ukloniš zadnji · klikni <strong>×</strong> za uklanjanje
+          </Text>
+
+          <FormLayout>
             <FormLayout.Group condensed>
-              <TextField label="Zabranjenih pozicija" type="number" value={num("banTopN")} onChange={v=>setNum("banTopN",v)} helpText="Broj prvih pozicija" />
-              <TextField label="Jitter" type="number" value={num("jitter")} onChange={v=>setNum("jitter",v)} helpText="Preporučeno: 0.25" />
-              <TextField label="Relax korak" type="number" value={num("relaxStep")} onChange={v=>setNum("relaxStep",v)} helpText="Preporučeno: 0.80" />
+              <TextField
+                label="Broj zabranjenih pozicija"
+                type="number"
+                value={num("banTopN")}
+                onChange={v=>setNum("banTopN",v)}
+                helpText={`Zabranjene kategorije se ne prikazuju na prvih ${cfg.banTopN||24} mjesta. 24 = cijela 1. stranica.`}
+              />
             </FormLayout.Group>
           </FormLayout>
+        </VerticalStack>
+      </Card>
+
+      {/* Fino podešavanje algoritma */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Fino podešavanje algoritma</Text>
+            <Text tone="subdued" variant="bodySm">Napredni parametri koji kontrolišu ponašanje sortirnog algoritma.</Text>
+          </VerticalStack>
+          <div style={{display:"flex", gap:"16px", flexWrap:"wrap"}}>
+
+            {/* Jitter */}
+            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
+                <div>
+                  <div style={{fontWeight:600, fontSize:"14px"}}>Jitter</div>
+                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Nasumičnost u scorevima</div>
+                </div>
+                <input
+                  type="number" min="0" max="2" step="0.05"
+                  value={num("jitter")}
+                  onChange={e=>setNum("jitter",e.target.value)}
+                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                />
+              </div>
+              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
+                Dodaje blagu nasumičnost tako da svako sortiranje nije identično.
+                <br/><span style={{color:"#1a6b3a"}}>0 = uvijek isti redoslijed</span> ·
+                <span style={{color:"#b98900"}}> 0.25 = blaga varijacija</span> ·
+                <span style={{color:"#d72c0d"}}> &gt;0.5 = haotično</span>
+              </div>
+            </div>
+
+            {/* Relax korak */}
+            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
+                <div>
+                  <div style={{fontWeight:600, fontSize:"14px"}}>Relax korak</div>
+                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Popuštanje penala</div>
+                </div>
+                <input
+                  type="number" min="0.1" max="1" step="0.05"
+                  value={num("relaxStep")}
+                  onChange={e=>setNum("relaxStep",e.target.value)}
+                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                />
+              </div>
+              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
+                Kada nema idealne alternative, penali se smanjuju za ovaj faktor.
+                Min. je 20% originalnog penala.
+                <br/><span style={{color:"#1a6b3a"}}>0.90 = sporo popušta</span> ·
+                <span style={{color:"#b98900"}}> 0.80 = uravnoteženo</span> ·
+                <span style={{color:"#d72c0d"}}> 0.60 = brzo popušta</span>
+              </div>
+            </div>
+
+          </div>
         </VerticalStack>
       </Card>
 
