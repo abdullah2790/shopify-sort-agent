@@ -1006,7 +1006,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
                   <td style={{padding:"8px 12px",textAlign:"center"}}>
                     <input type="number" min="0" max="100" step="1"
                       value={num(row.wKey)}
-                      onChange={e=>setNum(row.wKey,e.target.value)}
+                      onChange={e=>setPageNum(row.wKey,e.target.value)}
                       style={{width:"64px",textAlign:"center",border:"1px solid #c9cccf",borderRadius:"6px",padding:"5px 6px",fontSize:"14px"}}
                     />
                   </td>
