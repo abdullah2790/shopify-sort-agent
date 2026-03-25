@@ -8,7 +8,7 @@ const path      = require("path");
 const db        = require("./db");
 const { verifyWebhook, registerWebhooks, handleAppUninstalled } = require("./webhooks/handler");
 const { buildInstallUrl, exchangeCodeForToken, getCollections } = require("./api/shopifyClient");
-const { runSort, runSortAllCollections } = require("./engine/sortService");
+const { runSort, runSortAllCollections, runSortPreview } = require("./engine/sortService");
 const { syncCategories, getCategories, saveSeasonScores } = require("./engine/categoryService");
 const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather, getWeatherRangOverride } = require("./engine/weatherService");
 const DEFAULTS = require("../config/defaults");
@@ -194,6 +194,17 @@ app.post("/api/sort-all", async (req, res) => {
     res.status(202).json({ message: "Sort svih pokrenut" });
     await runSortAllCollections({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "manual", rangOverride });
   } catch (e) { console.error("Sort all greška:", e.message); }
+});
+
+app.get("/api/sort-preview", async (req, res) => {
+  const { shop, collectionId } = req.query;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const colRow = await db.query(`SELECT collection_config FROM watched_collections WHERE shop_id=$1 AND collection_id=$2`, [s.id, collectionId]);
+    const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
+    const result = await runSortPreview({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, rangOverride });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/api/watched-collections/bulk-remove", async (req, res) => {

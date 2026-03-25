@@ -70,6 +70,7 @@ function SortApp() {
   const [selected, setSelected]     = useState("");
   const [searchValue, setSearchValue] = useState("");
   const [configModal, setConfigModal] = useState(null);
+  const [previewModal, setPreviewModal] = useState(null);
 
   // Ref na trenutne scoreve kategorija — za auto-save
   const catScoresRef = useRef({});
@@ -257,6 +258,7 @@ function SortApp() {
                     return (
                       <ResourceItem id={item.collection_id} shortcutActions={[
                         { content:isSorting?"Sortira...":"Sortiraj", loading:isSorting, onAction:()=>runSort(item.collection_id, item.collection_title) },
+                        { content:"Preview", onAction:()=>setPreviewModal({ collectionId: item.collection_id, title: item.collection_title }) },
                         { content:"Postavke", onAction:()=>setConfigModal(item.collection_id) },
                         { content:"Ukloni", destructive:true, onAction:()=>removeCollection(item.collection_id) },
                       ]}>
@@ -393,6 +395,14 @@ function SortApp() {
           onClose={()=>{ setConfigModal(null); loadData(); }}
           onSuccess={setSuccess}
           onError={setError}
+        />
+      )}
+      {previewModal && (
+        <PreviewModal
+          shop={shop}
+          collectionId={previewModal.collectionId}
+          collectionTitle={previewModal.title}
+          onClose={()=>setPreviewModal(null)}
         />
       )}
     </Page>
@@ -1079,6 +1089,110 @@ function ConfigTab({ config, title, onSave, onReset }) {
         <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid}>Sačuvaj postavke</Button>
       </HorizontalStack>
     </VerticalStack>
+  );
+}
+
+// ── Sort Preview Modal ──────────────────────────────────────────────────────
+const RANG_COLORS = { Cold:"#d0e8ff", Mild:"#d4f0d4", Warm:"#fff0cc", Hot:"#ffd6cc" };
+const TYPE_LABELS = { "Žene":"Ž","Muškarci":"M","Unisex":"U","Djevojčice":"Dj","Dječaci":"Dč","Bebe":"B" };
+
+function scoreColor(s) {
+  if (s < 0)  return "#e8e8e8";
+  if (s < 4)  return "#ffd6cc";
+  if (s < 7)  return "#fff0cc";
+  if (s < 10) return "#d4f0d4";
+  return "#b6e5b6";
+}
+
+function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const PAGE = 24;
+
+  useEffect(() => {
+    fetch(`/api/sort-preview?shop=${encodeURIComponent(shop)}&collectionId=${encodeURIComponent(collectionId)}`)
+      .then(r => r.json())
+      .then(d => { if (d.error) throw new Error(d.error); setData(d); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [shop, collectionId]);
+
+  const products = data?.products || [];
+  const totalPages = Math.ceil(products.length / PAGE);
+  const pageProducts = products.slice((page - 1) * PAGE, page * PAGE);
+
+  return (
+    <Modal open={true} onClose={onClose} title={`Preview: ${collectionTitle}`} large
+      secondaryActions={[{ content:"Zatvori", onAction:onClose }]}
+    >
+      <Modal.Section>
+        {loading && <div style={{textAlign:"center",padding:"40px"}}><Spinner /></div>}
+        {error   && <Banner tone="critical"><p>{error}</p></Banner>}
+        {data && (
+          <VerticalStack gap="400">
+            {/* Header info */}
+            <HorizontalStack gap="300" blockAlign="center">
+              <div style={{padding:"4px 12px",borderRadius:"12px",background:RANG_COLORS[data.rang]||"#f0f0f0",fontSize:"13px",fontWeight:600}}>
+                Rang: {data.rang}
+              </div>
+              <Text tone="subdued" variant="bodySm">{data.total} proizvoda</Text>
+              {totalPages > 1 && (
+                <HorizontalStack gap="200" blockAlign="center">
+                  <Button size="slim" disabled={page===1} onClick={()=>setPage(p=>p-1)}>‹</Button>
+                  <Text variant="bodySm">Stranica {page} / {totalPages}</Text>
+                  <Button size="slim" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)}>›</Button>
+                </HorizontalStack>
+              )}
+            </HorizontalStack>
+
+            {/* Tabela */}
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                <thead>
+                  <tr style={{borderBottom:"2px solid #e1e3e5",background:"#fafbfb"}}>
+                    <th style={{padding:"8px 10px",textAlign:"center",width:"40px",color:"#6d7175",fontSize:"11px",fontWeight:600,textTransform:"uppercase"}}>#</th>
+                    <th style={{padding:"8px 10px",textAlign:"left",color:"#6d7175",fontSize:"11px",fontWeight:600,textTransform:"uppercase"}}>Naziv</th>
+                    <th style={{padding:"8px 10px",textAlign:"left",color:"#6d7175",fontSize:"11px",fontWeight:600,textTransform:"uppercase"}}>Kategorija</th>
+                    <th style={{padding:"8px 10px",textAlign:"center",color:"#6d7175",fontSize:"11px",fontWeight:600,textTransform:"uppercase"}}>Tip</th>
+                    <th style={{padding:"8px 10px",textAlign:"center",color:"#6d7175",fontSize:"11px",fontWeight:600,textTransform:"uppercase"}}>Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageProducts.map((p, i) => {
+                    const absPos = (page - 1) * PAGE + i + 1;
+                    const pageBreak = i > 0 && i % 24 === 0;
+                    return (
+                      <tr key={p.shopifyId} style={{
+                        borderBottom: pageBreak ? "2px solid #c4c4c4" : "1px solid #f1f2f3",
+                        background: i % 2 === 0 ? "white" : "#fafbfb",
+                      }}>
+                        <td style={{padding:"7px 10px",textAlign:"center",color:"#8c9196",fontWeight:600,fontSize:"12px"}}>{absPos}</td>
+                        <td style={{padding:"7px 10px",maxWidth:"220px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {p.score < 0 ? <span title="Sprinkler">⭐ </span> : null}{p.title}
+                        </td>
+                        <td style={{padding:"7px 10px",color:"#444"}}>{p.category || <span style={{color:"#bbb"}}>—</span>}</td>
+                        <td style={{padding:"7px 10px",textAlign:"center"}}>
+                          <span style={{fontSize:"11px",fontWeight:600,color:"#555"}}>{TYPE_LABELS[p.type] || p.type || "—"}</span>
+                        </td>
+                        <td style={{padding:"7px 10px",textAlign:"center"}}>
+                          <span style={{
+                            display:"inline-block",padding:"2px 8px",borderRadius:"10px",
+                            background:scoreColor(p.score),fontSize:"12px",fontWeight:600,
+                          }}>
+                            {p.score < 0 ? "spr" : p.score}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </VerticalStack>
+        )}
+      </Modal.Section>
+    </Modal>
   );
 }
 

@@ -116,9 +116,33 @@ async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConf
   return results;
 }
 
+async function runSortPreview({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, rangOverride = null }) {
+  const config = mergeConfig(shopConfig, collectionConfig);
+  const rang = rangOverride || getCurrentRang();
+  const categoryScores = await getCategoryScoresForSort(shopId);
+  const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
+  if (!products.length) return { rang, total: 0, products: [] };
+  const scored = calculateScores(products, categoryScores, rangOverride, config);
+  const sorted = sortProducts(scored, config);
+  const titleMap = new Map(scored.map(p => [p.id, { title: p.title, color: p.color }]));
+  return {
+    rang,
+    total: sorted.length,
+    products: sorted.map(item => ({
+      position:  item.position,
+      shopifyId: item.shopifyId,
+      title:     titleMap.get(item.shopifyId)?.title || "",
+      category:  item.category,
+      type:      item.type,
+      color:     titleMap.get(item.shopifyId)?.color || "",
+      score:     item.score,
+    })),
+  };
+}
+
 async function log(shopId, colId, trigger, count, duration, status, err=null) {
   await db.query(`INSERT INTO sort_logs (shop_id, collection_id, trigger, products_sorted, duration_ms, status, error_message) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [shopId, colId, trigger, count, duration, status, err]).catch(()=>{});
   return { collectionId: colId, productsSorted: count, status, error: err };
 }
 
-module.exports = { runSort, runSortAllCollections, getCurrentRang, mergeConfig };
+module.exports = { runSort, runSortAllCollections, runSortPreview, getCurrentRang, mergeConfig };
