@@ -319,6 +319,7 @@ function SortApp() {
         {tab===2 && shopConfig && (
           <ConfigTab
             config={shopConfig}
+            categories={categories}
             title="Opće postavke (default za sve kolekcije)"
             onSave={async (cfg) => {
               const r = await fetch("/api/config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, config:cfg}) });
@@ -773,21 +774,29 @@ function normalizeWeights(c) {
   return r;
 }
 
-function ConfigTab({ config, title, onSave, onReset }) {
+function ConfigTab({ config, categories = [], title, onSave, onReset }) {
   const [cfg, setCfg]         = useState(normalizeWeights({ ...config }));
   const [saving, setSaving]   = useState(false);
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
-  const initAccOrder = c => c.accessoryCategoryOrder?.length ? c.accessoryCategoryOrder : (c.accessoryCategories || []);
-  const [accOrder, setAccOrder] = useState(initAccOrder(config));
+
+  const sprinklerCats = categories.filter(c => c.is_sprinkler).map(c => c.handle);
+  function initAccOrder(savedOrder) {
+    if (!savedOrder?.length) return sprinklerCats;
+    // Zadrži sačuvani redoslijed, dodaj nove sprinklere na kraj, makni one koji više nisu sprinkleri
+    const kept = savedOrder.filter(h => sprinklerCats.includes(h));
+    const added = sprinklerCats.filter(h => !savedOrder.includes(h));
+    return [...kept, ...added];
+  }
+  const [accOrder, setAccOrder] = useState(() => initAccOrder(config.accessoryCategoryOrder));
 
   useEffect(() => {
     setCfg(normalizeWeights({ ...config }));
     setBannedList(config.bannedCategoriesTopN || []);
     setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
-    setAccOrder(initAccOrder(config));
-  }, [config]);
+    setAccOrder(initAccOrder(config.accessoryCategoryOrder));
+  }, [config, categories]);
 
   function addBanned(val) {
     const trimmed = val.trim();
@@ -1001,7 +1010,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
           <VerticalStack gap="100">
             <Text as="h3" variant="headingSm">Prioritet aksesoara</Text>
             <Text tone="subdued" variant="bodySm">
-              Redoslijed kojim se kategorije aksesoara prikazuju na stranici. Kategorije na vrhu liste imaju prednost. Vrijedi samo kada je stranica postavljena na 24 aksesoara.
+              Redoslijed kojim se kategorije aksesoara prikazuju. Kategorije se uzimaju iz onih označenih kao sprinkler u tabu Kategorije. Kategorije na vrhu imaju prednost.
             </Text>
           </VerticalStack>
           <div style={{borderRadius:"8px",border:"1px solid #e1e3e5",overflow:"hidden"}}>
