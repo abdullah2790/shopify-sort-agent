@@ -72,6 +72,7 @@ function SortApp() {
   const [configModal, setConfigModal] = useState(null);
   const [previewModal, setPreviewModal] = useState(null);
   const [addingAll, setAddingAll] = useState(false);
+  const [confirmAddAll, setConfirmAddAll] = useState(false);
 
   // Ref na trenutne scoreve kategorija — za auto-save
   const catScoresRef = useRef({});
@@ -247,7 +248,7 @@ function SortApp() {
               <HorizontalStack align="space-between">
                 <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
                 <HorizontalStack gap="200">
-                  <Button variant="plain" loading={addingAll} onClick={addAllCollections}>+ Dodaj sve</Button>
+                  <Button variant="plain" loading={addingAll} onClick={()=>setConfirmAddAll(true)}>+ Dodaj sve</Button>
                   <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
                 </HorizontalStack>
               </HorizontalStack>
@@ -413,6 +414,18 @@ function SortApp() {
           onError={setError}
         />
       )}
+      <Modal
+        open={confirmAddAll}
+        onClose={()=>setConfirmAddAll(false)}
+        title="Dodaj sve kolekcije"
+        primaryAction={{ content:"Da, dodaj sve", loading:addingAll, onAction:()=>{ setConfirmAddAll(false); addAllCollections(); } }}
+        secondaryActions={[{ content:"Odustani", onAction:()=>setConfirmAddAll(false) }]}
+      >
+        <Modal.Section>
+          <Text>Sve kolekcije sa Shopifyja bit će dodane u praćene i počet će se automatski sortirati. Jeste li sigurni?</Text>
+        </Modal.Section>
+      </Modal>
+
       {previewModal && (
         <PreviewModal
           shop={shop}
@@ -766,11 +779,13 @@ function ConfigTab({ config, title, onSave, onReset }) {
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
+  const [accOrder, setAccOrder]   = useState(config.accessoryCategoryOrder?.length ? config.accessoryCategoryOrder : (config.accessoryCategories || []));
 
   useEffect(() => {
     setCfg(normalizeWeights({ ...config }));
     setBannedList(config.bannedCategoriesTopN || []);
     setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
+    setAccOrder(config.accessoryCategoryOrder?.length ? config.accessoryCategoryOrder : (config.accessoryCategories || []));
   }, [config]);
 
   function addBanned(val) {
@@ -791,7 +806,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
   async function handleSave() {
     if (!pageTotalValid) return;
     setSaving(true);
-    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks });
+    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder });
     setSaving(false);
   }
 
@@ -976,6 +991,33 @@ function ConfigTab({ config, title, onSave, onReset }) {
               />
             </FormLayout.Group>
           </FormLayout>
+        </VerticalStack>
+      </Card>
+
+      {/* Prioritet aksesoara */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Prioritet aksesoara</Text>
+            <Text tone="subdued" variant="bodySm">
+              Redoslijed kojim se kategorije aksesoara prikazuju na stranici. Kategorije na vrhu liste imaju prednost. Vrijedi samo kada je stranica postavljena na 24 aksesoara.
+            </Text>
+          </VerticalStack>
+          <div style={{borderRadius:"8px",border:"1px solid #e1e3e5",overflow:"hidden"}}>
+            {accOrder.map((cat, i) => (
+              <div key={cat} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 12px",background:i%2===0?"white":"#fafbfb",borderBottom:i<accOrder.length-1?"1px solid #f1f2f3":"none"}}>
+                <span style={{fontSize:"12px",fontWeight:700,color:"#8c9196",minWidth:"20px",textAlign:"right"}}>{i+1}.</span>
+                <span style={{flex:1,fontSize:"14px"}}>{cat}</span>
+                <div style={{display:"flex",gap:"4px"}}>
+                  <button disabled={i===0} onClick={()=>setAccOrder(o=>{const a=[...o];[a[i-1],a[i]]=[a[i],a[i-1]];return a;})}
+                    style={{border:"1px solid #c9cccf",background:"white",borderRadius:"4px",padding:"2px 7px",cursor:i===0?"not-allowed":"pointer",opacity:i===0?0.4:1,fontSize:"13px"}}>↑</button>
+                  <button disabled={i===accOrder.length-1} onClick={()=>setAccOrder(o=>{const a=[...o];[a[i],a[i+1]]=[a[i+1],a[i]];return a;})}
+                    style={{border:"1px solid #c9cccf",background:"white",borderRadius:"4px",padding:"2px 7px",cursor:i===accOrder.length-1?"not-allowed":"pointer",opacity:i===accOrder.length-1?0.4:1,fontSize:"13px"}}>↓</button>
+                </div>
+              </div>
+            ))}
+            {accOrder.length===0 && <div style={{padding:"12px",color:"#8c9196",fontSize:"14px",textAlign:"center"}}>Nema definisanih kategorija aksesoara.</div>}
+          </div>
         </VerticalStack>
       </Card>
 

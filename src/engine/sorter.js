@@ -36,6 +36,7 @@ function sortProducts(products, config={}) {
   let relax=1.0;
   const out=[];
   const flatMode=(cfg.maleAccessoriesPerPage??0)+(cfg.femaleAccessoriesPerPage??0)>=24;
+  const ACC_ORDER=(cfg.accessoryCategoryOrder||[]).map(normCat);
 
   function banned(it){return out.length<cfg.banTopN&&BANNED.has(it.normCategory);}
   function sc(it){
@@ -46,7 +47,9 @@ function sortProducts(products, config={}) {
     if(p3){if(it.category===p3.category)pen+=PEN.c3*relax;if(it.color===p3.color)pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}
     if(p4){if(it.category===p4.category)pen+=PEN.c4*relax;if(it.color===p4.color)pen+=PEN.col4*relax;if(it.type===p4.type)pen+=PEN.t4*relax;}
     if(p5){if(it.category===p5.category)pen+=PEN.c5*relax;if(it.color===p5.color)pen+=PEN.col5*relax;if(it.type===p5.type)pen+=PEN.t5*relax;}
-    return (flatMode?0:it.score)-pen+(Math.random()-0.5)*cfg.jitter;
+    const pIdx=ACC_ORDER.indexOf(it.normCategory);
+    const base=flatMode?(ACC_ORDER.length>0&&pIdx>=0?ACC_ORDER.length-pIdx:0):it.score;
+    return base-pen+(Math.random()-0.5)*cfg.jitter;
   }
   function best(pool){
     if(!pool.length)return null;
@@ -72,6 +75,20 @@ function sortProducts(products, config={}) {
     commit(P.other,it);
   }
   let sprPtr=0;
+  let accPtr=0;
+  function pickByOrder(pools){
+    if(!ACC_ORDER.length)return null;
+    const prev=out.at(-1)?.normCategory??"";
+    for(let i=0;i<ACC_ORDER.length;i++){
+      const want=ACC_ORDER[(accPtr+i)%ACC_ORDER.length];
+      for(const pool of pools){
+        const f=pool.popWhere(it=>it.normCategory===want&&it.normCategory!==prev);
+        if(f){accPtr=(accPtr+i+1)%ACC_ORDER.length;return f;}
+      }
+    }
+    accPtr=(accPtr+1)%Math.max(1,ACC_ORDER.length);
+    return null;
+  }
   function spr(pool,prev){
     if(!pool.length)return null;const pc=prev?.normCategory??"";
     for(let i=0;i<SPR.length;i++){const want=SPR[sprPtr%SPR.length];sprPtr++;const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f)return f;}
@@ -81,6 +98,7 @@ function sortProducts(products, config={}) {
     const prev=out.at(-1)??null;
     function ts(sps,nps){
       if(prefSpr)for(const sp of sps){const s2=spr(sp,prev);if(s2)return s2;}
+      const byOrder=pickByOrder(nps);if(byOrder)return byOrder;
       for(const np of nps){const n=best(np);if(n)return n;}
       if(!prefSpr)for(const sp of sps){const s2=spr(sp,prev);if(s2)return s2;}
       return null;
