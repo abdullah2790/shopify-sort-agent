@@ -31,8 +31,8 @@ function extractCategory(p) {
   return String(p.product_type || "").trim();
 }
 
-function calculateScores(products, categoryScores = {}) {
-  const season = getCurrentSeason();
+function calculateScores(products, categoryScores = {}, seasonOverride = null) {
+  const season = seasonOverride || getCurrentSeason();
   const variantCounts   = products.map(p => p.variants?.length || 0);
   const inventoryCounts = products.map(p => (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0));
   const p95Var = percentile(variantCounts, 95);
@@ -66,7 +66,7 @@ function mergeConfig(shopConfig, collectionConfig) {
   return { ...base, ...collectionConfig };
 }
 
-async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, trigger = "manual" }) {
+async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, trigger = "manual", seasonOverride = null }) {
   const start = Date.now();
   try {
     const config = mergeConfig(shopConfig, collectionConfig);
@@ -77,7 +77,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
     const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
     if (!products.length) return log(shopId, collectionId, trigger, 0, Date.now()-start, "success");
 
-    const scored = calculateScores(products, categoryScores);
+    const scored = calculateScores(products, categoryScores, seasonOverride);
     const sorted = sortProducts(scored, config);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
@@ -89,7 +89,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
   }
 }
 
-async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual" }) {
+async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual", seasonOverride = null }) {
   const res = await db.query(
     `SELECT collection_id, collection_config FROM watched_collections WHERE shop_id = $1 AND active = TRUE`,
     [shopId]
@@ -102,6 +102,7 @@ async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConf
       shopConfig,
       collectionConfig: row.collection_config,
       trigger,
+      seasonOverride,
     }));
     await new Promise(r => setTimeout(r, 300));
   }

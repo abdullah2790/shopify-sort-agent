@@ -59,6 +59,8 @@ async function migrate() {
 
     await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_sprinkler BOOLEAN DEFAULT FALSE;`);
 
+    await client.query(`ALTER TABLE shop_configs ADD COLUMN IF NOT EXISTS weather_config JSONB DEFAULT NULL;`);
+
     await client.query("COMMIT");
     console.log("✅ Migracija uspješna");
   } catch (e) {

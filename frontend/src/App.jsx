@@ -12,6 +12,17 @@ const shop = new URLSearchParams(window.location.search).get("shop") || "";
 const SEASONS = ["zima","proljece","ljeto","jesen"];
 const SEASON_LABELS = { zima:"Zima", proljece:"Proljeće", ljeto:"Ljeto", jesen:"Jesen" };
 
+const DEFAULT_WEATHER_RANGES = [
+  { name: "Cold", min: -20, max: 10 },
+  { name: "Mild", min: 11,  max: 20 },
+  { name: "Warm", min: 21,  max: 28 },
+  { name: "Hot",  min: 29,  max: 45 },
+];
+const DEFAULT_WEATHER_CONFIG = {
+  enabled: false, city: "Sarajevo", readHour: 6,
+  ranges: DEFAULT_WEATHER_RANGES, lastForecast: null,
+};
+
 export default function App() {
   return <AppProvider i18n={en}><SortApp /></AppProvider>;
 }
@@ -29,6 +40,7 @@ function SortApp() {
   const [success, setSuccess]       = useState(null);
   const [sorting, setSorting]       = useState(null);
   const [selectedCols, setSelectedCols] = useState([]);
+  const [weatherConfig, setWeatherConfig] = useState(null);
   const [addModal, setAddModal]     = useState(false);
   const [selected, setSelected]     = useState("");
   const [searchValue, setSearchValue] = useState("");
@@ -42,13 +54,14 @@ function SortApp() {
     if (!shop) return;
     setLoading(true);
     try {
-      const [c, w, l, cfg, cats, sch] = await Promise.all([
+      const [c, w, l, cfg, cats, sch, wth] = await Promise.all([
         fetch(`/api/collections?shop=${shop}`).then(r=>r.json()),
         fetch(`/api/watched-collections?shop=${shop}`).then(r=>r.json()),
         fetch(`/api/logs?shop=${shop}&limit=20`).then(r=>r.json()),
         fetch(`/api/config?shop=${shop}`).then(r=>r.json()),
         fetch(`/api/categories?shop=${shop}`).then(r=>r.json()),
         fetch(`/api/schedule?shop=${shop}`).then(r=>r.json()),
+        fetch(`/api/weather-config?shop=${shop}`).then(r=>r.json()),
       ]);
       setCollections(c.collections||[]);
       setWatched(w.collections||[]);
@@ -56,6 +69,7 @@ function SortApp() {
       setShopConfig(cfg.config||{});
       setCategories(cats.categories||[]);
       setSchedule(sch.schedule||{ enabled:false, intervalDays:1, hour:3, minute:0 });
+      setWeatherConfig(wth.weatherConfig||DEFAULT_WEATHER_CONFIG);
     } catch { setError("Greška pri učitavanju."); }
     finally { setLoading(false); }
   }, []);
@@ -167,6 +181,7 @@ function SortApp() {
     { id:"categories",  content:`Kategorije (${categories.length})` },
     { id:"config",      content:"Opće postavke" },
     { id:"schedule",    content:"Raspored" },
+    { id:"weather",     content:"Prognoza" },
     { id:"logs",        content:"Logovi" },
   ];
 
@@ -278,8 +293,19 @@ function SortApp() {
           />
         )}
 
-        {/* ── Tab 4: Logovi ── */}
-        {tab===4 && (
+        {/* ── Tab 4: Prognoza ── */}
+        {tab===4 && weatherConfig && (
+          <WeatherTab
+            weatherConfig={weatherConfig}
+            shop={shop}
+            onSaved={(cfg) => setWeatherConfig(cfg)}
+            onError={setError}
+            onSuccess={setSuccess}
+          />
+        )}
+
+        {/* ── Tab 5: Logovi ── */}
+        {tab===5 && (
           <Card>
             <VerticalStack gap="400">
               <Text as="h2" variant="headingMd">Logovi sortiranja</Text>
@@ -734,5 +760,232 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
         )}
       </Modal.Section>
     </Modal>
+  );
+}
+
+// ── Weather Tab ────────────────────────────────────────────────────────────
+const RANG_META = {
+  Cold: { emoji: "❄️",  label: "Hladno",   season: "Zima",     seasonKey: "zima",     bg: "#e8f4f8", border: "#b0d4e8" },
+  Mild: { emoji: "🌤",  label: "Umjereno", season: "Proljeće", seasonKey: "proljece", bg: "#eaf7ee", border: "#a8d5b5" },
+  Warm: { emoji: "☀️",  label: "Toplo",    season: "Ljeto",    seasonKey: "ljeto",    bg: "#fffbe6", border: "#f0d070" },
+  Hot:  { emoji: "🔥",  label: "Vruće",    season: "Ljeto",    seasonKey: "ljeto",    bg: "#fdecea", border: "#f0a0a0" },
+};
+
+function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
+  const [cfg, setCfg]   = useState({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
+  const [saving, setSaving]   = useState(false);
+  const [reading, setReading] = useState(false);
+
+  useEffect(() => {
+    setCfg({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
+  }, [weatherConfig]);
+
+  const hourOptions = Array.from({length:24}, (_,i) => ({
+    label: `${String(i).padStart(2,"0")}:00`, value: String(i)
+  }));
+
+  const forecast = cfg.lastForecast;
+  const rangMeta = forecast ? (RANG_META[forecast.rang] || {}) : null;
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const r = await fetch("/api/weather-config", {
+        method:"PUT", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ shop, weatherConfig: cfg }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "Greška");
+      onSuccess("✅ Postavke prognoze sačuvane!");
+      onSaved(cfg);
+    } catch(e) { onError(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleReadNow() {
+    if (!cfg.city?.trim()) return onError("Unesite naziv grada.");
+    setReading(true);
+    try {
+      const r = await fetch("/api/weather/read", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ shop }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Greška");
+      const updated = { ...cfg, lastForecast: d.forecast };
+      setCfg(updated);
+      onSaved(updated);
+      onSuccess(`✅ Prognoza očitana: ${d.forecast.temp}°C — ${RANG_META[d.forecast.rang]?.label || d.forecast.rang}`);
+    } catch(e) { onError(e.message); }
+    finally { setReading(false); }
+  }
+
+  function updateRange(name, field, val) {
+    setCfg(c => ({
+      ...c,
+      ranges: (c.ranges || DEFAULT_WEATHER_RANGES).map(r =>
+        r.name === name ? { ...r, [field]: parseInt(val) || 0 } : r
+      ),
+    }));
+  }
+
+  const ranges = cfg.ranges || DEFAULT_WEATHER_RANGES;
+
+  return (
+    <VerticalStack gap="500">
+
+      {/* Zadnja prognoza */}
+      {forecast && rangMeta ? (
+        <Card>
+          <VerticalStack gap="300">
+            <HorizontalStack align="space-between" blockAlign="center">
+              <Text as="h3" variant="headingSm">Zadnja očitana prognoza</Text>
+              <Text tone="subdued" variant="bodySm">
+                {new Date(forecast.readAt).toLocaleString("bs-BA")}
+              </Text>
+            </HorizontalStack>
+            <div style={{
+              display:"flex", gap:"20px", flexWrap:"wrap", alignItems:"center",
+              padding:"16px 20px", borderRadius:"10px",
+              background: rangMeta.bg, border:`1px solid ${rangMeta.border}`,
+            }}>
+              <div style={{textAlign:"center", minWidth:"80px"}}>
+                <div style={{fontSize:"42px", fontWeight:700, lineHeight:1}}>{forecast.temp}°C</div>
+                <div style={{fontSize:"12px", color:"#6d7175", marginTop:"4px"}}>{forecast.city}</div>
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:"6px"}}>
+                <div style={{fontSize:"15px", fontWeight:500}}>{forecast.description}</div>
+                <div style={{display:"flex", alignItems:"center", gap:"8px", flexWrap:"wrap"}}>
+                  <span style={{
+                    display:"inline-flex", alignItems:"center", gap:"4px",
+                    padding:"3px 10px", borderRadius:"12px",
+                    background:"white", border:`1px solid ${rangMeta.border}`,
+                    fontSize:"13px", fontWeight:600,
+                  }}>
+                    {rangMeta.emoji} {rangMeta.label}
+                  </span>
+                  <Text variant="bodySm" tone="subdued">
+                    → scoring: <strong>{rangMeta.season}</strong>
+                  </Text>
+                </div>
+                <Text variant="bodySm" tone="subdued">
+                  Osjeća se kao {forecast.feelsLike}°C · Vlažnost {forecast.humidity}%
+                </Text>
+              </div>
+            </div>
+          </VerticalStack>
+        </Card>
+      ) : (
+        <Banner tone="warning">
+          <p>Prognoza još nije očitana. Unesite grad i kliknite <strong>Čitaj sada</strong>.</p>
+        </Banner>
+      )}
+
+      {/* Postavke */}
+      <Card>
+        <VerticalStack gap="400">
+          <Text as="h3" variant="headingSm">Postavke prognoze</Text>
+          <FormLayout>
+            <Select
+              label="Vremenska prognoza"
+              options={[{label:"Isključena",value:"off"},{label:"Uključena — koristi temperaturu umjesto kalendarske sezone",value:"on"}]}
+              value={cfg.enabled ? "on" : "off"}
+              onChange={v => setCfg(c => ({...c, enabled: v==="on"}))}
+            />
+            <FormLayout.Group>
+              <TextField
+                label="Grad"
+                value={cfg.city || ""}
+                onChange={v => setCfg(c => ({...c, city: v}))}
+                placeholder="npr. Sarajevo"
+                helpText="Grad za koji se čita prognoza (wttr.in)."
+              />
+              <Select
+                label="Sat automatskog čitanja"
+                options={hourOptions}
+                value={String(cfg.readHour ?? 6)}
+                onChange={v => setCfg(c => ({...c, readHour: parseInt(v)}))}
+                helpText="Prognoza se automatski čita u ovom satu (i pred svako cron sortiranje)."
+              />
+            </FormLayout.Group>
+          </FormLayout>
+        </VerticalStack>
+      </Card>
+
+      {/* Temperaturni rangovi */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Temperaturni rangovi</Text>
+            <Text tone="subdued" variant="bodySm">
+              Definiši temperaturne granice za svaki rang. Rang određuje koji sezonski scoring algoritam koristi pri sortiranju.
+            </Text>
+          </VerticalStack>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%", borderCollapse:"collapse", fontSize:"14px"}}>
+              <thead>
+                <tr style={{borderBottom:"2px solid #e1e3e5"}}>
+                  <th style={{textAlign:"left",   padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Rang</th>
+                  <th style={{textAlign:"center", padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Minimum (°C)</th>
+                  <th style={{textAlign:"center", padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Maksimum (°C)</th>
+                  <th style={{textAlign:"center", padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Scoring sezone</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranges.map((rang, i) => {
+                  const meta = RANG_META[rang.name] || {};
+                  return (
+                    <tr key={rang.name} style={{background: meta.bg || (i%2===0?"#fafbfb":"white"), borderBottom:"1px solid #f1f2f3"}}>
+                      <td style={{padding:"8px 14px"}}>
+                        <span style={{fontWeight:600}}>{meta.emoji} {meta.label || rang.name}</span>
+                      </td>
+                      <td style={{padding:"6px 14px", textAlign:"center"}}>
+                        <input
+                          type="number" step="1"
+                          value={rang.min}
+                          onChange={e => updateRange(rang.name, "min", e.target.value)}
+                          style={{width:"72px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                        />
+                      </td>
+                      <td style={{padding:"6px 14px", textAlign:"center"}}>
+                        <input
+                          type="number" step="1"
+                          value={rang.max}
+                          onChange={e => updateRange(rang.name, "max", e.target.value)}
+                          style={{width:"72px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                        />
+                      </td>
+                      <td style={{padding:"6px 14px", textAlign:"center"}}>
+                        <span style={{
+                          display:"inline-block", padding:"3px 10px", borderRadius:"10px",
+                          background:"white", border:`1px solid ${meta.border || "#e1e3e5"}`,
+                          fontSize:"12px", fontWeight:600,
+                        }}>
+                          {meta.season || "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Banner tone="info">
+            <p>
+              <strong>Cold / Mild</strong> → koristi score za <strong>Zima / Proljeće</strong> kategorije. &nbsp;
+              <strong>Warm / Hot</strong> → koristi score za <strong>Ljeto</strong>.
+            </p>
+          </Banner>
+        </VerticalStack>
+      </Card>
+
+      <HorizontalStack align="space-between">
+        <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim()}>
+          Čitaj prognozu sada
+        </Button>
+        <Button variant="primary" onClick={handleSave} loading={saving}>
+          Sačuvaj postavke
+        </Button>
+      </HorizontalStack>
+    </VerticalStack>
   );
 }

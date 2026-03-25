@@ -10,6 +10,7 @@ const { verifyWebhook, registerWebhooks, handleAppUninstalled } = require("./web
 const { buildInstallUrl, exchangeCodeForToken, getCollections } = require("./api/shopifyClient");
 const { runSort, runSortAllCollections } = require("./engine/sortService");
 const { syncCategories, getCategories, saveSeasonScores } = require("./engine/categoryService");
+const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather, getWeatherSeasonOverride } = require("./engine/weatherService");
 const DEFAULTS = require("../config/defaults");
 
 const app  = express();
@@ -179,8 +180,9 @@ app.post("/api/sort", async (req, res) => {
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     const colRow = await db.query(`SELECT collection_config FROM watched_collections WHERE shop_id=$1 AND collection_id=$2`, [s.id, collectionId]);
+    const seasonOverride = await getWeatherSeasonOverride(s.id).catch(() => null);
     res.status(202).json({ message: "Sort pokrenut" });
-    await runSort({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, trigger: "manual" });
+    await runSort({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, trigger: "manual", seasonOverride });
   } catch (e) { console.error("Sort greška:", e.message); }
 });
 
@@ -188,8 +190,9 @@ app.post("/api/sort-all", async (req, res) => {
   const { shop } = req.body;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const seasonOverride = await getWeatherSeasonOverride(s.id).catch(() => null);
     res.status(202).json({ message: "Sort svih pokrenut" });
-    await runSortAllCollections({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "manual" });
+    await runSortAllCollections({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "manual", seasonOverride });
   } catch (e) { console.error("Sort all greška:", e.message); }
 });
 
@@ -227,6 +230,34 @@ app.post("/api/sync-all-collections", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Weather config ─────────────────────────────────────────────────────────
+app.get("/api/weather-config", async (req, res) => {
+  const { shop } = req.query;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    res.json({ weatherConfig: await getWeatherConfig(s.id) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/api/weather-config", async (req, res) => {
+  const { shop, weatherConfig } = req.body;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    await saveWeatherConfig(s.id, weatherConfig);
+    weatherScheduleManager.update(shop, s.id, weatherConfig);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/weather/read", async (req, res) => {
+  const { shop } = req.body;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const forecast = await readAndStoreWeather(s.id);
+    res.json({ ok: true, forecast });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/api/logs", async (req, res) => {
   const { shop, limit = 20 } = req.query;
   try { const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" }); const r = await db.query(`SELECT * FROM sort_logs WHERE shop_id = $1 ORDER BY created_at DESC LIMIT $2`, [s.id, limit]); res.json({ logs: r.rows }); }
@@ -242,6 +273,40 @@ app.get("/dashboard", (req, res) => {
 app.get("*", (req, res) => {
   res.sendFile(path.join(frontendBuild, "index.html"), err => { if (err) res.status(404).send("Not found"); });
 });
+
+// ── Weather Schedule Manager ────────────────────────────────────────────────
+const weatherTasks = {};
+
+const weatherScheduleManager = {
+  update(shopDomain, shopId, weatherCfg) {
+    if (weatherTasks[shopDomain]) { weatherTasks[shopDomain].stop(); delete weatherTasks[shopDomain]; }
+    if (!weatherCfg?.enabled || !weatherCfg?.city) return;
+
+    const hour    = parseInt(weatherCfg.readHour ?? 6);
+    const pattern = `0 ${hour} * * *`;
+
+    weatherTasks[shopDomain] = cron.schedule(pattern, async () => {
+      try {
+        console.log(`🌤 [${shopDomain}] Čitanje vremenske prognoze...`);
+        await readAndStoreWeather(shopId);
+      } catch (err) {
+        console.error(`❌ [${shopDomain}] Weather greška:`, err.message);
+      }
+    }, { timezone: "Europe/Sarajevo" });
+
+    console.log(`🌤 [${shopDomain}] Weather schedule: svaki dan u ${hour}:00`);
+  },
+
+  async init() {
+    try {
+      const col = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='shop_configs' AND column_name='weather_config'`);
+      if (!col.rows.length) return;
+      const r = await db.query(`SELECT s.id, s.shop_domain, sc.weather_config FROM shops s JOIN shop_configs sc ON sc.shop_id=s.id WHERE s.active=TRUE AND sc.weather_config->>'enabled'='true'`);
+      for (const row of r.rows) this.update(row.shop_domain, row.id, row.weather_config);
+      console.log(`🌤 Weather schedule inicijalizovan za ${r.rows.length} shopova`);
+    } catch (e) { console.error("Weather init greška:", e.message); }
+  }
+};
 
 // ── Schedule Manager ───────────────────────────────────────────────────────
 // Drži aktivne cron taskove po shopu
@@ -262,7 +327,6 @@ const scheduleManager = {
     scheduleTasks[shopDomain] = cron.schedule(pattern, async () => {
       try {
         // Provjeri interval — skip ako nije prošlo dovoljno vremena
-        // Intentionally checks only trigger='cron' — manual runs ne utiču na schedule
         const s = await getShop(shopDomain).catch(()=>null);
         if (!s) return;
 
@@ -274,20 +338,35 @@ const scheduleManager = {
           }
         }
 
+        // 1. Učitaj vremensku prognozu (ako je uključena)
+        const weatherCfg = await getWeatherConfig(s.id).catch(() => null);
+        if (weatherCfg?.enabled && weatherCfg?.city) {
+          try {
+            console.log(`🌤 [${shopDomain}] Čitanje prognoze prije sortiranja...`);
+            await readAndStoreWeather(s.id);
+          } catch (we) {
+            console.warn(`⚠️ [${shopDomain}] Weather greška (nastavljam sortiranje):`, we.message);
+          }
+        }
+
+        // 2. Dohvati season override iz prognoze
+        const seasonOverride = await getWeatherSeasonOverride(s.id).catch(() => null);
+        if (seasonOverride) console.log(`🌡 [${shopDomain}] Season override: ${seasonOverride}`);
+
+        // 3. Sortiraj sve kolekcije
         console.log(`⏰ [${shopDomain}] Schedule sort pokrenut`);
-        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron" });
+        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron", seasonOverride });
       } catch (err) {
         console.error(`❌ [${shopDomain}] Schedule greška (cron ostaje aktivan):`, err.message);
       }
     }, { timezone: "Europe/Sarajevo" });
 
-    console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:00`);
+    console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:${String(minute).padStart(2,"0")}`);
   },
 
   async init() {
     // Učitaj sve aktivne schedule-ove pri startu servera
     try {
-      // Provjeri postoji li schedule kolona prije upita
       const col = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='shop_configs' AND column_name='schedule'`);
       if (!col.rows.length) {
         console.warn("⚠️  Kolona 'schedule' ne postoji u shop_configs — pokreni: node src/db/migrate.js");
@@ -308,5 +387,6 @@ async function getShop(domain) {
 app.listen(PORT, "0.0.0.0", async () => {
   console.log(`🚀 Server pokrenut na portu ${PORT}`);
   await scheduleManager.init();
+  await weatherScheduleManager.init();
 });
 module.exports = app;
