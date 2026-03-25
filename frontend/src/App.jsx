@@ -1363,15 +1363,23 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
       </Card>
 
       {!hideSaveButton && (
-        <div style={{position:"sticky",bottom:0,background:"white",borderTop:"1px solid #e1e3e5",padding:"14px 0 4px",zIndex:10,marginTop:"4px"}}>
-          <UnsavedBanner show={isDirty} />
-          <HorizontalStack align="space-between">
-            {onReset
-              ? <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>
-              : <span />
-            }
+        <div style={{
+          position:"sticky", bottom:0, zIndex:10,
+          background:"white",
+          borderRadius:"12px",
+          border:"1px solid #e1e3e5",
+          boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+          padding:"14px 20px",
+          display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px",
+        }}>
+          {isDirty
+            ? <span style={{fontSize:"13px",color:"#b98900",fontWeight:500,display:"flex",alignItems:"center",gap:"6px"}}>⚠ Imate nesačuvane promjene</span>
+            : <span style={{fontSize:"13px",color:"#6d7175"}}>Sve promjene su sačuvane</span>
+          }
+          <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+            {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na default</Button>}
             <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty||!pageTotalValid||!weightsValid}>Sačuvaj postavke</Button>
-          </HorizontalStack>
+          </div>
         </div>
       )}
     </VerticalStack>
