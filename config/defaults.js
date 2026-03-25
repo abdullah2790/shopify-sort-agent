@@ -64,6 +64,8 @@ module.exports = {
   scoreWeightCategory : 0.65,
   scoreWeightVariants : 0.25,
   scoreWeightInventory: 0.10,
+  variantPercentile   : 95,
+  inventoryPercentile : 95,
   categoryScores: {
     "Jakne"      : { Cold: 10, Mild: 6, Warm: 2,  Hot: 1  },
     "Dukserice"  : { Cold: 9,  Mild: 6, Warm: 2,  Hot: 1  },

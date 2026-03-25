@@ -32,12 +32,12 @@ function extractCategory(p) {
   return String(p.product_type || "").trim();
 }
 
-function calculateScores(products, categoryScores = {}, rangOverride = null) {
+function calculateScores(products, categoryScores = {}, rangOverride = null, config = {}) {
   const rang = rangOverride || getCurrentRang();
   const variantCounts   = products.map(p => p.variants?.length || 0);
   const inventoryCounts = products.map(p => (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0));
-  const p95Var = percentile(variantCounts, 95);
-  const p95Inv = percentile(inventoryCounts, 95);
+  const p95Var = percentile(variantCounts,   config.variantPercentile   ?? 95);
+  const p95Inv = percentile(inventoryCounts, config.inventoryPercentile ?? 95);
 
   return products.map(p => {
     const tags = (p.tags || "").toLowerCase().split(",").map(t => t.trim());
@@ -81,7 +81,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
     const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
     if (!products.length) return log(shopId, collectionId, trigger, 0, Date.now()-start, "success");
 
-    const scored = calculateScores(products, categoryScores, rangOverride);
+    const scored = calculateScores(products, categoryScores, rangOverride, config);
     const sorted = sortProducts(scored, config);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);

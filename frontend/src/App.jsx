@@ -1011,6 +1011,50 @@ function ConfigTab({ config, title, onSave, onReset }) {
               </div>
             </div>
 
+            {/* Varijante percentil */}
+            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
+                <div>
+                  <div style={{fontWeight:600, fontSize:"14px"}}>Varijante — percentil</div>
+                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Normalizacija broja varijanti</div>
+                </div>
+                <input
+                  type="number" min="50" max="100" step="1"
+                  value={num("variantPercentile")}
+                  onChange={e=>setNum("variantPercentile",e.target.value)}
+                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                />
+              </div>
+              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
+                Gornja granica za normalizaciju varijanti (25% težine scora).
+                <br/><span style={{color:"#1a6b3a"}}>95 = standard</span> ·
+                <span style={{color:"#b98900"}}> 75 = jači uticaj varijanti</span> ·
+                <span style={{color:"#d72c0d"}}> 100 = samo outlieri prave razliku</span>
+              </div>
+            </div>
+
+            {/* Zaliha percentil */}
+            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
+                <div>
+                  <div style={{fontWeight:600, fontSize:"14px"}}>Zaliha — percentil</div>
+                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Normalizacija zaliha</div>
+                </div>
+                <input
+                  type="number" min="50" max="100" step="1"
+                  value={num("inventoryPercentile")}
+                  onChange={e=>setNum("inventoryPercentile",e.target.value)}
+                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                />
+              </div>
+              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
+                Gornja granica za normalizaciju zaliha (10% težine scora).
+                <br/><span style={{color:"#1a6b3a"}}>95 = standard</span> ·
+                <span style={{color:"#b98900"}}> 75 = jači uticaj zaliha</span> ·
+                <span style={{color:"#d72c0d"}}> 100 = samo outlieri prave razliku</span>
+              </div>
+            </div>
+
             {/* Relax korak */}
             <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
