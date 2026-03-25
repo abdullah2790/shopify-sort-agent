@@ -726,15 +726,23 @@ function FallbackRow({ slotKey, label, chain, onChange }) {
   );
 }
 
+function normalizeWeights(c) {
+  const r = { ...c };
+  for (const k of ["scoreWeightCategory","scoreWeightVariants","scoreWeightInventory"]) {
+    if (r[k] !== undefined && r[k] <= 1) r[k] = Math.round(r[k] * 100);
+  }
+  return r;
+}
+
 function ConfigTab({ config, title, onSave, onReset }) {
-  const [cfg, setCfg]         = useState({ ...config });
+  const [cfg, setCfg]         = useState(normalizeWeights({ ...config }));
   const [saving, setSaving]   = useState(false);
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
 
   useEffect(() => {
-    setCfg({ ...config });
+    setCfg(normalizeWeights({ ...config }));
     setBannedList(config.bannedCategoriesTopN || []);
     setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
   }, [config]);
