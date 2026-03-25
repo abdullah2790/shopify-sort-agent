@@ -17,16 +17,18 @@ const DEFAULT_WEATHER_CONFIG = {
 };
 
 
-// ── HTTP helper ────────────────────────────────────────────────────────────
-function httpsGet(url) {
+// ── HTTP helper — prati redirecte (301/302) ────────────────────────────────
+function httpsGet(url, redirectsLeft = 3) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { "User-Agent": "SmartSort/1.0" } }, (res) => {
+      // Prati redirect
+      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location && redirectsLeft > 0) {
+        return httpsGet(res.headers.location, redirectsLeft - 1).then(resolve, reject);
+      }
+      if (res.statusCode !== 200) return reject(new Error(`Weather HTTP ${res.statusCode}`));
       let data = "";
       res.on("data", c => data += c);
-      res.on("end", () => {
-        if (res.statusCode !== 200) return reject(new Error(`Weather HTTP ${res.statusCode}`));
-        resolve(data);
-      });
+      res.on("end", () => resolve(data));
     });
     req.setTimeout(12000, () => { req.destroy(); reject(new Error("Weather timeout")); });
     req.on("error", reject);
