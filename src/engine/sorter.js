@@ -109,11 +109,11 @@ function sortProducts(products, config={}) {
     if(nAW+nAM>=24){
       const allPools=Object.values(P);
       for(let i=0;i<pat.length;i++){
-        let b=null,bv=-Infinity;
-        for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){if(banned(it))continue;const v=sc(it);if(v>bv){bv=v;b=it;}}}
-        if(!b){for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;}}}}
+        let b=null,bv=-Infinity,bp=null;
+        for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){if(banned(it))continue;const v=sc(it);if(v>bv){bv=v;b=it;bp=pool;}}}
+        if(!b){for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;bp=pool;}}}}
         if(!b)return;
-        cbt(b);
+        commit(bp,b);
       }
       return;
     }
