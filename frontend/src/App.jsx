@@ -29,6 +29,25 @@ const DEFAULT_WEATHER_CONFIG = {
   ranges: DEFAULT_WEATHER_RANGES, lastForecast: null,
 };
 
+const DEFAULT_FALLBACKS = {
+  women:  ["unisex", "men", "other"],
+  men:    ["unisex", "women", "other"],
+  girls:  ["women", "unisex", "boys", "babies", "men", "other"],
+  boys:   ["men", "unisex", "girls", "babies", "women", "other"],
+  babies: ["girls", "boys", "women", "men", "other"],
+  accW:   ["women", "unisex", "men", "other"],
+  accM:   ["men", "unisex", "women", "other"],
+};
+const FALLBACK_OPTIONS = [
+  { value:"women",  label:"Žene" },
+  { value:"men",    label:"Muškarci" },
+  { value:"unisex", label:"Unisex" },
+  { value:"girls",  label:"Djevojčice" },
+  { value:"boys",   label:"Dječaci" },
+  { value:"babies", label:"Bebe" },
+  { value:"other",  label:"Ostalo" },
+];
+
 export default function App() {
   return <AppProvider i18n={en}><SortApp /></AppProvider>;
 }
@@ -670,15 +689,54 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
 }
 
 // ── Config Tab ─────────────────────────────────────────────────────────────
+function FallbackRow({ slotKey, label, chain, onChange }) {
+  const [adding, setAdding] = useState("");
+  const available = FALLBACK_OPTIONS.filter(o => o.value !== slotKey && !chain.includes(o.value));
+  const labelFor = v => FALLBACK_OPTIONS.find(o => o.value === v)?.label || v;
+  function add() { if (adding) { onChange([...chain, adding]); setAdding(""); } }
+  function remove(i) { onChange(chain.filter((_,j) => j !== i)); }
+  function moveUp(i) { if (i===0) return; const c=[...chain]; [c[i-1],c[i]]=[c[i],c[i-1]]; onChange(c); }
+  function moveDown(i) { if (i===chain.length-1) return; const c=[...chain]; [c[i],c[i+1]]=[c[i+1],c[i]]; onChange(c); }
+  return (
+    <div style={{display:"flex",alignItems:"flex-start",gap:"12px",flexWrap:"wrap",padding:"8px 0",borderBottom:"1px solid #f1f2f3"}}>
+      <div style={{minWidth:"110px",paddingTop:"5px",fontSize:"13px",fontWeight:600,color:"#303030",flexShrink:0}}>{label}</div>
+      <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"6px",flex:1}}>
+        {chain.length===0 && <span style={{fontSize:"12px",color:"#8c9196",fontStyle:"italic"}}>— nema fallback-a</span>}
+        {chain.map((v,i) => (
+          <span key={v} style={{display:"inline-flex",alignItems:"center",gap:"3px",padding:"3px 8px",borderRadius:"14px",background:"#f1f8ff",border:"1px solid #b3d4f5",fontSize:"12px",fontWeight:500,color:"#1a5276"}}>
+            <span style={{color:"#aaa",fontSize:"11px",marginRight:"2px"}}>{i+1}.</span>
+            {labelFor(v)}
+            {i>0 && <span onClick={()=>moveUp(i)} title="Gore" style={{cursor:"pointer",fontSize:"11px",color:"#666",padding:"0 2px"}}>↑</span>}
+            {i<chain.length-1 && <span onClick={()=>moveDown(i)} title="Dole" style={{cursor:"pointer",fontSize:"11px",color:"#666",padding:"0 2px"}}>↓</span>}
+            <span onClick={()=>remove(i)} title="Ukloni" style={{cursor:"pointer",fontSize:"13px",color:"#999",marginLeft:"2px"}}>×</span>
+          </span>
+        ))}
+        {available.length>0 && (
+          <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
+            <select value={adding} onChange={e=>setAdding(e.target.value)}
+              style={{fontSize:"12px",padding:"3px 6px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",color:adding?"#303030":"#8c9196"}}>
+              <option value="">+ Dodaj...</option>
+              {available.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            {adding && <button onClick={add} style={{fontSize:"11px",padding:"3px 8px",borderRadius:"6px",background:"#008060",color:"white",border:"none",cursor:"pointer"}}>Dodaj</button>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ConfigTab({ config, title, onSave, onReset }) {
   const [cfg, setCfg]         = useState({ ...config });
   const [saving, setSaving]   = useState(false);
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
+  const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
 
   useEffect(() => {
     setCfg({ ...config });
     setBannedList(config.bannedCategoriesTopN || []);
+    setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
   }, [config]);
 
   function addBanned(val) {
@@ -699,7 +757,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
   async function handleSave() {
     if (!pageTotalValid) return;
     setSaving(true);
-    await onSave({ ...cfg, bannedCategoriesTopN: bannedList });
+    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks });
     setSaving(false);
   }
 
@@ -884,6 +942,41 @@ function ConfigTab({ config, title, onSave, onReset }) {
               />
             </FormLayout.Group>
           </FormLayout>
+        </VerticalStack>
+      </Card>
+
+      {/* Fallback redoslijed */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Fallback redoslijed</Text>
+            <Text tone="subdued" variant="bodySm">
+              Kada nema dovoljno proizvoda određenog tipa, popunjava se sljedećim po redu.
+              Npr. nema ženskih → uzmi Unisex → Muškarci → Ostalo.
+            </Text>
+          </VerticalStack>
+          <div style={{borderRadius:"8px",border:"1px solid #e1e3e5",overflow:"hidden"}}>
+            <div style={{padding:"8px 12px",background:"#fafbfb",borderBottom:"1px solid #e1e3e5",display:"grid",gridTemplateColumns:"110px 1fr",gap:"12px"}}>
+              <span style={{fontSize:"11px",fontWeight:600,color:"#6d7175",textTransform:"uppercase"}}>Slot</span>
+              <span style={{fontSize:"11px",fontWeight:600,color:"#6d7175",textTransform:"uppercase"}}>Fallback redoslijed</span>
+            </div>
+            <div style={{padding:"0 12px"}}>
+              {[
+                { key:"women",  label:"Žene" },
+                { key:"men",    label:"Muškarci" },
+                { key:"girls",  label:"Djevojčice" },
+                { key:"boys",   label:"Dječaci" },
+                { key:"babies", label:"Bebe" },
+                { key:"accW",   label:"Žen. dodaci" },
+                { key:"accM",   label:"Muš. dodaci" },
+              ].map(({key, label}) => (
+                <FallbackRow key={key} slotKey={key} label={label}
+                  chain={fallbacks[key] || []}
+                  onChange={chain => setFallbacks(f => ({...f, [key]: chain}))}
+                />
+              ))}
+            </div>
+          </div>
         </VerticalStack>
       </Card>
 

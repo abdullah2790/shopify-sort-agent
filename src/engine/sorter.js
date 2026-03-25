@@ -30,6 +30,7 @@ function sortProducts(products, config={}) {
 
   const desc=arr=>arr.sort((a,b)=>b.score-a.score);
   const P=Object.fromEntries(Object.entries(raw).map(([k,arr])=>[k,new Pool(desc(arr))]));
+  const PMAP={women:P.womenAdults,men:P.menAdults,unisex:P.unisexAdults,girls:P.girls,boys:P.boys,babies:P.babies,accW:P.accW,accM:P.accM,accU:P.accU,other:P.other};
   const PEN={c:cfg.penaltySameCategory,col:cfg.penaltySameColor,t:cfg.penaltySameType,c2:cfg.penaltyInLast2Category,col2:cfg.penaltyInLast2Color,t2:cfg.penaltyInLast2Type,c3:cfg.penaltyInLast3Category,col3:cfg.penaltyInLast3Color,t3:cfg.penaltyInLast3Type,c4:cfg.penaltyInLast4Category,col4:cfg.penaltyInLast4Color,t4:cfg.penaltyInLast4Type,c5:cfg.penaltyInLast5Category,col5:cfg.penaltyInLast5Color,t5:cfg.penaltyInLast5Type};
   let relax=1.0;
   const out=[];
@@ -90,10 +91,11 @@ function sortProducts(products, config={}) {
     const prev=out.at(-1)??null;
     function sa(tgt){return spr(tgt==="M"?P.sprAccM:P.sprAccW,prev)??best(tgt==="M"?P.accM:P.accW);}
     let t=cfg.firstGender==="W"?(nW>0?"W":"M"):cfg.firstGender==="M"?(nM>0?"M":"W"):nW>nM?"W":nM>nW?"M":(prev?.type===W?"M":"W");
-    if(t==="M"){const it=best(P.menAdults)??best(P.unisexAdults)??best(P.womenAdults)??sa("M")??best(P.boys)??best(P.babies)??best(P.girls)??best(P.other);return{it:it??null,filledTarget:"M"};}
-    const it=best(P.womenAdults)??best(P.unisexAdults)??best(P.menAdults)??sa("W")??best(P.girls)??best(P.babies)??best(P.boys)??best(P.other);
-    return{it:it??null,filledTarget:"W"};
+    const isM=t==="M";
+    const it=best(isM?P.menAdults:P.womenAdults)??fromFallback(isM?"men":"women")??sa(isM?"M":"W");
+    return{it:it??null,filledTarget:t};
   }
+  function fromFallback(key){const chain=cfg.fallbacks?.[key]??[];for(const k of chain){const pool=PMAP[k];if(pool){const it=best(pool);if(it)return it;}}return null;}
   function kids(p,...fb){return best(p)??fb.reduce((a,f)=>a??best(f),null);}
   function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
 
@@ -106,10 +108,10 @@ function sortProducts(products, config={}) {
       const isFirst=out.length===ps;
       if(pat[i]==="A"||isFirst){const{it,filledTarget}=adultSlot(nW,nM);if(!it)return;if(filledTarget==="W")nW=Math.max(0,nW-1);else nM=Math.max(0,nM-1);cbt(it);continue;}
       const w=op[oPtr++%op.length];
-      if(w==="ACC"&&(nAW>0||nAM>0)){const t=nAW>0?"W":"M";const it=acc(t,true);if(it){if(t==="W")nAW--;else nAM--;cbt(it);continue;}}
-      if(w==="BABY"&&nBB>0){const it=kids(P.babies,P.girls,P.boys,P.womenAdults,P.menAdults,P.other);if(it){nBB--;cbt(it);continue;}}
-      if(w==="GIRL"&&nG>0){const it=kids(P.girls,P.womenAdults,P.unisexAdults,P.boys,P.babies,P.menAdults,P.other);if(it){nG--;cbt(it);continue;}}
-      if(w==="BOY"&&nB>0){const it=kids(P.boys,P.menAdults,P.unisexAdults,P.girls,P.babies,P.womenAdults,P.other);if(it){nB--;cbt(it);continue;}}
+      if(w==="ACC"&&(nAW>0||nAM>0)){const t=nAW>0?"W":"M";const it=acc(t,true)??fromFallback(t==="W"?"accW":"accM");if(it){if(t==="W")nAW--;else nAM--;cbt(it);continue;}}
+      if(w==="BABY"&&nBB>0){const it=best(P.babies)??fromFallback("babies");if(it){nBB--;cbt(it);continue;}}
+      if(w==="GIRL"&&nG>0){const it=best(P.girls)??fromFallback("girls");if(it){nG--;cbt(it);continue;}}
+      if(w==="BOY"&&nB>0){const it=best(P.boys)??fromFallback("boys");if(it){nB--;cbt(it);continue;}}
       const a=acc(null,false);if(a){cbt(a);continue;}
       const k=kids(P.babies,P.girls,P.boys)??kids(P.girls,P.boys,P.babies)??kids(P.boys,P.girls,P.babies)??best(P.other);if(k){cbt(k);continue;}
       const{it}=adultSlot(nW,nM);if(!it)return;cbt(it);
