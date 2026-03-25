@@ -364,18 +364,7 @@ const scheduleManager = {
           }
         }
 
-        // 1. Učitaj vremensku prognozu (ako je uključena)
-        const weatherCfg = await getWeatherConfig(s.id).catch(() => null);
-        if (weatherCfg?.enabled && weatherCfg?.city) {
-          try {
-            console.log(`🌤 [${shopDomain}] Čitanje prognoze prije sortiranja...`);
-            await readAndStoreWeather(s.id);
-          } catch (we) {
-            console.warn(`⚠️ [${shopDomain}] Weather greška (nastavljam sortiranje):`, we.message);
-          }
-        }
-
-        // 2. Dohvati rang override iz prognoze
+        // Dohvati rang override iz zadnje pohrane prognoze (čita se u weatherReadHour, ne ovdje)
         const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
         if (rangOverride) console.log(`🌡 [${shopDomain}] Rang override: ${rangOverride}`);
 
@@ -387,7 +376,15 @@ const scheduleManager = {
       }
     }, { timezone: "Europe/Sarajevo" });
 
-    console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:${String(minute).padStart(2,"0")}`);
+    const weatherReadHour = parseInt(schedule.weatherReadHour ?? 13);
+    console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:${String(minute).padStart(2,"0")} | prognoza čita: ${weatherReadHour}:00`);
+    // Ažuriraj weather cron na konfigurisani sat čitanja prognoze
+    getShop(shopDomain).then(s => {
+      if (!s) return;
+      getWeatherConfig(s.id).then(wCfg => {
+        if (wCfg) weatherScheduleManager.update(shopDomain, s.id, { ...wCfg, readHour: weatherReadHour });
+      }).catch(()=>{});
+    }).catch(()=>{});
   },
 
   async init() {

@@ -507,6 +507,8 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
   });
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const origRef = useRef({ scores: {}, sprinklers: {} });
+  const prevDirtyRef = useRef(false);
 
   useEffect(() => {
     const m = {};
@@ -517,8 +519,19 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
     for (const c of categories) sp[c.handle] = c.is_sprinkler || false;
     setSprinklers(sp);
     sprinklersRef.current = sp;
+    origRef.current = { scores: m, sprinklers: sp };
+    prevDirtyRef.current = false;
     setIsDirty(false);
+    onDirtyChange(false);
   }, [categories, scoresRef, sprinklersRef]);
+
+  useEffect(() => {
+    const dirty =
+      JSON.stringify(scores)     !== JSON.stringify(origRef.current.scores) ||
+      JSON.stringify(sprinklers) !== JSON.stringify(origRef.current.sprinklers);
+    setIsDirty(dirty);
+    if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
+  }, [JSON.stringify(scores), JSON.stringify(sprinklers)]);
 
   function setScore(handle, rang, val) {
     setScores(s => {
@@ -526,7 +539,6 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
       scoresRef.current = next;
       return next;
     });
-    setIsDirty(true); onDirtyChange(true);
   }
 
   function toggleSprinkler(handle) {
@@ -535,7 +547,6 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
       sprinklersRef.current = next;
       return next;
     });
-    setIsDirty(true); onDirtyChange(true);
   }
 
   async function handleSave() {
@@ -794,6 +805,33 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
         </VerticalStack>
       </Card>
 
+      {/* Sat čitanja prognoze */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Prognoza za sortiranje</Text>
+            <Text tone="subdued" variant="bodySm">
+              Sort ne čita prognozu u sat pokretanja (noć) — umjesto toga koristi prognozu sačuvanu u ovom satu tokom dana.
+              Preporučeno: 13:00 (podnevna temperatura bolje odražava šta kupci nose).
+            </Text>
+          </VerticalStack>
+          <FormLayout>
+            <FormLayout.Group condensed>
+              <Select
+                label="Sat čitanja prognoze"
+                options={Array.from({length:24}, (_,i) => ({
+                  label: `${String(i).padStart(2,"0")}:00${i===13?" ✓":""}`,
+                  value: String(i),
+                }))}
+                value={String(cfg.weatherReadHour ?? 13)}
+                onChange={v => { setCfg(c => ({...c, weatherReadHour: parseInt(v)})); }}
+                helpText="Prognoza se automatski čita u ovom satu. Sort u noći koristi ovu vrijednost."
+              />
+            </FormLayout.Group>
+          </FormLayout>
+        </VerticalStack>
+      </Card>
+
       <UnsavedBanner show={isDirty} />
       <HorizontalStack align="end">
         <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj raspored</Button>
@@ -930,7 +968,7 @@ function normalizeWeights(c) {
   return r;
 }
 
-function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onReset, onDirtyChange = () => {} }) {
+function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onReset, onDirtyChange = () => {}, hideSaveButton = false, saveRef = null }) {
   const [cfg, setCfg]         = useState(normalizeWeights({ ...config }));
   const [saving, setSaving]   = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -996,6 +1034,9 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
     setSaving(false);
     setIsDirty(false); onDirtyChange(false);
   }
+
+  // Expose handleSave to parent (used by CollectionConfigModal)
+  if (saveRef) saveRef.current = handleSave;
 
   return (
     <VerticalStack gap="500">
@@ -1321,13 +1362,27 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
         </VerticalStack>
       </Card>
 
-      <div style={{position:"sticky",bottom:0,background:"white",borderTop:"1px solid #e1e3e5",padding:"14px 0 4px",zIndex:10,marginTop:"4px"}}>
-        <UnsavedBanner show={isDirty} />
-        <HorizontalStack align="space-between">
-          {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>}
-          <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid||!weightsValid}>Sačuvaj postavke</Button>
-        </HorizontalStack>
-      </div>
+      {!hideSaveButton && (
+        <div style={{position:"sticky",bottom:0,background:"white",borderTop:"1px solid #e1e3e5",padding:"14px 0 4px",zIndex:10,marginTop:"4px"}}>
+          <UnsavedBanner show={isDirty} />
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            {onReset
+              ? <button onClick={onReset} style={{background:"none",border:"none",color:"#d72c0d",fontSize:"13px",fontWeight:500,cursor:"pointer",padding:"8px 0"}}>Resetuj na shop default</button>
+              : <span />
+            }
+            <button
+              onClick={handleSave}
+              disabled={!pageTotalValid||!weightsValid||saving}
+              style={{
+                padding:"10px 28px",borderRadius:"8px",border:"none",cursor:(!pageTotalValid||!weightsValid)?"not-allowed":"pointer",
+                background:(!pageTotalValid||!weightsValid)?"#c9cccf":"#1a6b3a",
+                color:"white",fontSize:"14px",fontWeight:600,letterSpacing:"0.2px",
+                transition:"background 0.15s",opacity:saving?0.75:1,
+              }}
+            >{saving?"Čuva se...":"Sačuvaj postavke"}</button>
+          </div>
+        </div>
+      )}
     </VerticalStack>
   );
 }
@@ -1438,9 +1493,11 @@ function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
 
 // ── Per-Collection Config Modal ────────────────────────────────────────────
 function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, onSuccess, onError }) {
-  const [data, setData]     = useState(null);
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
-  const [hasOwn, setHasOwn] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [hasOwn, setHasOwn]   = useState(false);
+  const saveRef = useRef(null);
 
   useEffect(() => {
     fetch(`/api/collection-config?shop=${shop}&collectionId=${collectionId}`)
@@ -1450,9 +1507,13 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
   }, [shop, collectionId]);
 
   async function handleSave(cfg) {
-    await fetch("/api/collection-config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId, config:cfg}) });
-    onSuccess(`✅ Postavke za "${collectionTitle}" sačuvane!`);
-    onClose();
+    setSaving(true);
+    try {
+      await fetch("/api/collection-config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId, config:cfg}) });
+      onSuccess(`✅ Postavke za "${collectionTitle}" sačuvane!`);
+      onClose();
+    } catch(e) { onError(e?.message || "Greška"); }
+    finally { setSaving(false); }
   }
 
   async function handleReset() {
@@ -1463,6 +1524,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
 
   return (
     <Modal open={true} onClose={onClose} title={`Postavke: ${collectionTitle}`} large
+      primaryAction={{ content:"Sačuvaj postavke", loading:saving, onAction:() => saveRef.current?.() }}
       secondaryActions={[{ content:"Zatvori", onAction:onClose }]}
     >
       <Modal.Section>
@@ -1472,7 +1534,13 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
           <VerticalStack gap="400">
             {!hasOwn && <Banner tone="info"><p>Koristi <strong>shop default postavke</strong>. Promjenama ćeš kreirati vlastite.</p></Banner>}
             {hasOwn  && <Banner tone="success"><p>Ova kolekcija ima <strong>vlastite postavke</strong>.</p></Banner>}
-            <ConfigTab config={data?.merged||data?.shopConfig||{}} onSave={handleSave} onReset={hasOwn?handleReset:undefined} />
+            <ConfigTab
+              config={data?.merged||data?.shopConfig||{}}
+              onSave={handleSave}
+              onReset={hasOwn?handleReset:undefined}
+              hideSaveButton={true}
+              saveRef={saveRef}
+            />
           </VerticalStack>
         )}
       </Modal.Section>
