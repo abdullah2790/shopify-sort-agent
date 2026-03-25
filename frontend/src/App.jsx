@@ -71,6 +71,7 @@ function SortApp() {
   const [searchValue, setSearchValue] = useState("");
   const [configModal, setConfigModal] = useState(null);
   const [previewModal, setPreviewModal] = useState(null);
+  const [addingAll, setAddingAll] = useState(false);
 
   // Ref na trenutne scoreve kategorija — za auto-save
   const catScoresRef = useRef({});
@@ -138,6 +139,18 @@ function SortApp() {
       setSuccess("✅ Sortiranje svih kolekcija pokrenuto!");
       setTimeout(loadData, 5000);
     } catch (e) { setError(e.message || "Greška."); } finally { setSorting(null); }
+  }
+
+  async function addAllCollections() {
+    setAddingAll(true); setError(null);
+    try {
+      const res = await fetch("/api/watched-collections/add-all", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop}) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Greška");
+      setSuccess(`✅ Dodano ${d.added} kolekcija.`);
+      await loadData();
+    } catch(e) { setError(e.message); }
+    finally { setAddingAll(false); }
   }
 
   async function addCollection() {
@@ -233,7 +246,10 @@ function SortApp() {
             <VerticalStack gap="400">
               <HorizontalStack align="space-between">
                 <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
-                <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
+                <HorizontalStack gap="200">
+                  <Button variant="plain" loading={addingAll} onClick={addAllCollections}>+ Dodaj sve</Button>
+                  <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
+                </HorizontalStack>
               </HorizontalStack>
               {activeWatched.length===0 ? (
                 <EmptyState heading="Nema praćenih kolekcija" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">

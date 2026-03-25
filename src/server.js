@@ -89,6 +89,21 @@ app.post("/api/watched-collections", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/api/watched-collections/add-all", async (req, res) => {
+  const { shop } = req.body;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const cols = await getCollections(shop, s.access_token);
+    for (const col of cols) {
+      await db.query(
+        `INSERT INTO watched_collections (shop_id, collection_id, collection_title, active) VALUES ($1,$2,$3,true) ON CONFLICT (shop_id, collection_id) DO UPDATE SET active=true, collection_title=$3`,
+        [s.id, col.id, col.title]
+      );
+    }
+    res.json({ ok: true, added: cols.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/api/collection-config", async (req, res) => {
   const { shop, collectionId } = req.query;
   try {
