@@ -36,7 +36,7 @@ function sortProducts(products, config={}) {
   let relax=1.0;
   const out=[];
   const flatMode=(cfg.maleAccessoriesPerPage??0)+(cfg.femaleAccessoriesPerPage??0)>=24;
-  const ACC_ORDER=(cfg.accessoryCategoryOrder||[]).map(normCat);
+  const ACC_ORDER=((cfg.accessoryCategoryOrder?.length?cfg.accessoryCategoryOrder:cfg.accessoryCategories)||[]).map(normCat);
 
   function banned(it){return out.length<cfg.banTopN&&BANNED.has(it.normCategory);}
   function sc(it){

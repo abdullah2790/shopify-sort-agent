@@ -46,10 +46,7 @@ module.exports = {
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
     "Manžetne","Čarape","Pidžame","Kape","Donji veš","Veš","Peškiri",
   ],
-  accessoryCategoryOrder: [
-    "Kape","Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
-    "Manžetne","Čarape","Kape","Pidžame","Peškiri","Donji veš","Veš",
-  ],
+  accessoryCategoryOrder: [],
   sprinklerCategoryOrder: [
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
     "Manžetne","Pidžame","Peškiri","Čarape","Donji veš","Veš","Kape",

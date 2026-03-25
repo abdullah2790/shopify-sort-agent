@@ -779,13 +779,14 @@ function ConfigTab({ config, title, onSave, onReset }) {
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
-  const [accOrder, setAccOrder]   = useState(config.accessoryCategoryOrder?.length ? config.accessoryCategoryOrder : (config.accessoryCategories || []));
+  const initAccOrder = c => c.accessoryCategoryOrder?.length ? c.accessoryCategoryOrder : (c.accessoryCategories || []);
+  const [accOrder, setAccOrder] = useState(initAccOrder(config));
 
   useEffect(() => {
     setCfg(normalizeWeights({ ...config }));
     setBannedList(config.bannedCategoriesTopN || []);
     setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
-    setAccOrder(config.accessoryCategoryOrder?.length ? config.accessoryCategoryOrder : (config.accessoryCategories || []));
+    setAccOrder(initAccOrder(config));
   }, [config]);
 
   function addBanned(val) {
