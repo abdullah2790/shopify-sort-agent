@@ -103,6 +103,17 @@ function sortProducts(products, config={}) {
   function buildPage(){
     let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=cfg.maleAccessoriesPerPage??0,nAM=cfg.femaleAccessoriesPerPage??0;
     const pat=shuffle([...Array(16).fill("A"),...Array(8).fill("O")]);
+
+    // Accessories-only mode: kada accessories kvota pokriva cijelu stranicu
+    if(nAW+nAM>=pat.length){
+      for(let i=0;i<pat.length;i++){
+        const it=acc(null,false)??acc(null,true);
+        if(!it)return;
+        cbt(it);
+      }
+      return;
+    }
+
     const op=shuffle(["ACC","BABY","GIRL","BOY","ACC","BABY","GIRL","BOY"]);
     let oPtr=0;const ps=out.length;
     for(let i=0;i<pat.length;i++){
