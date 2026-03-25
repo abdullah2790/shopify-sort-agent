@@ -106,11 +106,14 @@ function sortProducts(products, config={}) {
     const pat=shuffle([...Array(16).fill("A"),...Array(8).fill("O")]);
 
     // Accessories-only mode: kada accessories kvota pokriva cijelu stranicu
-    if(nAW+nAM>=pat.length){
+    if(nAW+nAM>=24){
+      const allPools=Object.values(P);
       for(let i=0;i<pat.length;i++){
-        const it=acc(null,false)??acc(null,true);
-        if(!it)return;
-        cbt(it);
+        let b=null,bv=-Infinity;
+        for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){if(banned(it))continue;const v=sc(it);if(v>bv){bv=v;b=it;}}}
+        if(!b){for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;}}}}
+        if(!b)return;
+        cbt(b);
       }
       return;
     }
