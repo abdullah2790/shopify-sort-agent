@@ -1365,22 +1365,13 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
       {!hideSaveButton && (
         <div style={{position:"sticky",bottom:0,background:"white",borderTop:"1px solid #e1e3e5",padding:"14px 0 4px",zIndex:10,marginTop:"4px"}}>
           <UnsavedBanner show={isDirty} />
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <HorizontalStack align="space-between">
             {onReset
-              ? <button onClick={onReset} style={{background:"none",border:"none",color:"#d72c0d",fontSize:"13px",fontWeight:500,cursor:"pointer",padding:"8px 0"}}>Resetuj na shop default</button>
+              ? <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>
               : <span />
             }
-            <button
-              onClick={handleSave}
-              disabled={!pageTotalValid||!weightsValid||saving}
-              style={{
-                padding:"10px 28px",borderRadius:"8px",border:"none",cursor:(!pageTotalValid||!weightsValid)?"not-allowed":"pointer",
-                background:(!pageTotalValid||!weightsValid)?"#c9cccf":"#1a6b3a",
-                color:"white",fontSize:"14px",fontWeight:600,letterSpacing:"0.2px",
-                transition:"background 0.15s",opacity:saving?0.75:1,
-              }}
-            >{saving?"Čuva se...":"Sačuvaj postavke"}</button>
-          </div>
+            <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty||!pageTotalValid||!weightsValid}>Sačuvaj postavke</Button>
+          </HorizontalStack>
         </div>
       )}
     </VerticalStack>
@@ -1497,6 +1488,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [hasOwn, setHasOwn]   = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const saveRef = useRef(null);
 
   useEffect(() => {
@@ -1524,7 +1516,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
 
   return (
     <Modal open={true} onClose={onClose} title={`Postavke: ${collectionTitle}`} large
-      primaryAction={{ content:"Sačuvaj postavke", loading:saving, onAction:() => saveRef.current?.() }}
+      primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty, onAction:() => saveRef.current?.() }}
       secondaryActions={[{ content:"Zatvori", onAction:onClose }]}
     >
       <Modal.Section>
@@ -1540,6 +1532,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
               onReset={hasOwn?handleReset:undefined}
               hideSaveButton={true}
               saveRef={saveRef}
+              onDirtyChange={setIsDirty}
             />
           </VerticalStack>
         )}
