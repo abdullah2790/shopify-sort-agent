@@ -513,17 +513,19 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
 
 // ── Schedule Tab ───────────────────────────────────────────────────────────
 function ScheduleTab({ schedule, shop, onSaved, onError }) {
-  const [cfg, setCfg]   = useState({ ...schedule });
+  const [cfg, setCfg]       = useState({ ...schedule });
   const [saving, setSaving] = useState(false);
 
-  const hourOptions   = Array.from({length:24}, (_,i) => ({ label:`${String(i).padStart(2,"0")}h`, value:String(i) }));
-  const minuteOptions = [0,5,10,15,20,25,30,35,40,45,50,55].map(m => ({ label:String(m).padStart(2,"0"), value:String(m) }));
   const intervalOptions = [
-    { label:"Svaki dan", value:"1" },
-    { label:"Svaka 2 dana", value:"2" },
-    { label:"Svaka 3 dana", value:"3" },
-    { label:"Jednom sedmično", value:"7" },
+    { label:"Svaki dan",       value:"1", icon:"📅" },
+    { label:"Svaka 2 dana",    value:"2", icon:"📅" },
+    { label:"Svaka 3 dana",    value:"3", icon:"📅" },
+    { label:"Jednom sedmično", value:"7", icon:"📅" },
   ];
+
+  const h   = parseInt(cfg.hour   ?? 3);
+  const min = parseInt(cfg.minute ?? 0);
+  const timeStr = `${String(h).padStart(2,"0")}:${String(min).padStart(2,"0")}`;
 
   async function handleSave() {
     setSaving(true);
@@ -535,62 +537,158 @@ function ScheduleTab({ schedule, shop, onSaved, onError }) {
     finally { setSaving(false); }
   }
 
+  const intervalLabel = intervalOptions.find(o => o.value === String(cfg.intervalDays||1))?.label || "";
+
   return (
-    <Card>
-      <VerticalStack gap="500">
-        <Text as="h2" variant="headingMd">Automatski raspored sortiranja</Text>
+    <VerticalStack gap="400">
 
-        <Banner tone={cfg.enabled?"success":"warning"}>
-          <p>{cfg.enabled
-            ? `✅ Aktivan — sortira svake ${cfg.intervalDays===1?"":""+cfg.intervalDays+" "}${cfg.intervalDays===1?"noći":"noći"} u ${String(cfg.hour).padStart(2,"0")}:${String(cfg.minute??0).padStart(2,"0")}.`
-            : "⏸ Raspored je isključen. Sortiranje se pokreće samo ručno."
-          }</p>
-        </Banner>
+      {/* Status kartica */}
+      <Card>
+        <div style={{
+          display:"flex", alignItems:"center", gap:"16px", flexWrap:"wrap",
+          padding:"4px 0",
+        }}>
+          <div style={{
+            width:"48px", height:"48px", borderRadius:"12px", flexShrink:0,
+            background: cfg.enabled ? "#e3f9e5" : "#f6f6f7",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:"24px",
+          }}>
+            {cfg.enabled ? "⏰" : "⏸"}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600, fontSize:"15px", color: cfg.enabled ? "#1a6b3a" : "#6d7175"}}>
+              {cfg.enabled ? "Automatsko sortiranje aktivno" : "Automatsko sortiranje isključeno"}
+            </div>
+            <div style={{fontSize:"13px", color:"#6d7175", marginTop:"2px"}}>
+              {cfg.enabled
+                ? `Pokreće se ${intervalLabel.toLowerCase()} u ${timeStr}h (Europe/Sarajevo)`
+                : "Sortiranje se pokreće samo ručno."
+              }
+            </div>
+          </div>
+          {/* Toggle */}
+          <div
+            onClick={() => setCfg(c => ({...c, enabled: !c.enabled}))}
+            style={{
+              width:"52px", height:"28px", borderRadius:"14px", cursor:"pointer",
+              background: cfg.enabled ? "#1a6b3a" : "#c9cccf",
+              position:"relative", transition:"background 0.2s", flexShrink:0,
+            }}
+          >
+            <div style={{
+              position:"absolute", top:"3px",
+              left: cfg.enabled ? "26px" : "3px",
+              width:"22px", height:"22px", borderRadius:"50%",
+              background:"white", transition:"left 0.2s",
+              boxShadow:"0 1px 3px rgba(0,0,0,0.2)",
+            }} />
+          </div>
+        </div>
+      </Card>
 
-        <FormLayout>
-          <Select
-            label="Automatsko sortiranje"
-            options={[{ label:"Isključeno", value:"off" }, { label:"Uključeno", value:"on" }]}
-            value={cfg.enabled?"on":"off"}
-            onChange={v=>setCfg(c=>({...c, enabled:v==="on"}))}
-          />
+      {/* Učestalost */}
+      <Card>
+        <VerticalStack gap="400">
+          <Text as="h3" variant="headingSm">Učestalost</Text>
+          <div style={{display:"flex", gap:"10px", flexWrap:"wrap"}}>
+            {intervalOptions.map(opt => (
+              <div
+                key={opt.value}
+                onClick={() => setCfg(c => ({...c, intervalDays: parseInt(opt.value)}))}
+                style={{
+                  padding:"10px 18px", borderRadius:"10px", cursor:"pointer",
+                  border:`2px solid ${String(cfg.intervalDays||1) === opt.value ? "#1a6b3a" : "#e1e3e5"}`,
+                  background: String(cfg.intervalDays||1) === opt.value ? "#eaf7ee" : "white",
+                  color: String(cfg.intervalDays||1) === opt.value ? "#1a6b3a" : "#202223",
+                  fontWeight: String(cfg.intervalDays||1) === opt.value ? 600 : 400,
+                  fontSize:"14px", transition:"all 0.15s",
+                }}
+              >
+                {opt.label}
+              </div>
+            ))}
+          </div>
+        </VerticalStack>
+      </Card>
 
-          {cfg.enabled && (
-            <>
-              <Select
-                label="Koliko često"
-                options={intervalOptions}
-                value={String(cfg.intervalDays||1)}
-                onChange={v=>setCfg(c=>({...c, intervalDays:parseInt(v)}))}
-              />
-              <HorizontalStack gap="300" blockAlign="end">
-                <div style={{flex:1}}>
-                  <Select
-                    label="Sat"
-                    options={hourOptions}
-                    value={String(cfg.hour??3)}
-                    onChange={v=>setCfg(c=>({...c, hour:parseInt(v)}))}
-                  />
+      {/* Vrijeme */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Vrijeme pokretanja</Text>
+            <Text tone="subdued" variant="bodySm">Preporučeno između 02:00 i 05:00 — najmanji promet.</Text>
+          </VerticalStack>
+
+          {/* Sat */}
+          <VerticalStack gap="200">
+            <Text variant="bodySm" fontWeight="semibold">Sat</Text>
+            <div style={{display:"flex", gap:"6px", flexWrap:"wrap"}}>
+              {Array.from({length:24}, (_,i) => (
+                <div
+                  key={i}
+                  onClick={() => setCfg(c => ({...c, hour: i}))}
+                  style={{
+                    width:"42px", height:"36px", borderRadius:"8px",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer", fontSize:"13px", fontWeight: h===i ? 700 : 400,
+                    border:`2px solid ${h===i ? "#1a6b3a" : "#e1e3e5"}`,
+                    background: h===i ? "#eaf7ee" : (i>=2&&i<=5 ? "#f9fafb" : "white"),
+                    color: h===i ? "#1a6b3a" : "#202223",
+                    transition:"all 0.1s",
+                  }}
+                >
+                  {String(i).padStart(2,"0")}
                 </div>
-                <div style={{flex:1}}>
-                  <Select
-                    label="Minute"
-                    options={minuteOptions}
-                    value={String(cfg.minute??0)}
-                    onChange={v=>setCfg(c=>({...c, minute:parseInt(v)}))}
-                    helpText="Preporučeno: 02:00 – 05:00"
-                  />
-                </div>
-              </HorizontalStack>
-            </>
-          )}
-        </FormLayout>
+              ))}
+            </div>
+          </VerticalStack>
 
-        <HorizontalStack align="end">
-          <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj raspored</Button>
-        </HorizontalStack>
-      </VerticalStack>
-    </Card>
+          {/* Minute */}
+          <VerticalStack gap="200">
+            <Text variant="bodySm" fontWeight="semibold">Minute</Text>
+            <div style={{display:"flex", gap:"6px", flexWrap:"wrap"}}>
+              {[0,5,10,15,20,25,30,35,40,45,50,55].map(m => (
+                <div
+                  key={m}
+                  onClick={() => setCfg(c => ({...c, minute: m}))}
+                  style={{
+                    width:"48px", height:"36px", borderRadius:"8px",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer", fontSize:"13px", fontWeight: min===m ? 700 : 400,
+                    border:`2px solid ${min===m ? "#1a6b3a" : "#e1e3e5"}`,
+                    background: min===m ? "#eaf7ee" : "white",
+                    color: min===m ? "#1a6b3a" : "#202223",
+                    transition:"all 0.1s",
+                  }}
+                >
+                  :{String(m).padStart(2,"0")}
+                </div>
+              ))}
+            </div>
+          </VerticalStack>
+
+          {/* Preview */}
+          <div style={{
+            display:"inline-flex", alignItems:"center", gap:"10px",
+            padding:"10px 16px", borderRadius:"10px",
+            background:"#f6f6f7", border:"1px solid #e1e3e5",
+          }}>
+            <span style={{fontSize:"20px"}}>🕐</span>
+            <div>
+              <span style={{fontSize:"22px", fontWeight:700, letterSpacing:"1px"}}>{timeStr}</span>
+              <span style={{fontSize:"13px", color:"#6d7175", marginLeft:"8px"}}>
+                {intervalLabel} · Europe/Sarajevo
+              </span>
+            </div>
+          </div>
+        </VerticalStack>
+      </Card>
+
+      <HorizontalStack align="end">
+        <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj raspored</Button>
+      </HorizontalStack>
+    </VerticalStack>
   );
 }
 
