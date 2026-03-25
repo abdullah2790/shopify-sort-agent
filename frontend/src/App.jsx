@@ -987,6 +987,34 @@ function ConfigTab({ config, title, onSave, onReset }) {
             <Text as="h3" variant="headingSm">Fino podešavanje algoritma</Text>
             <Text tone="subdued" variant="bodySm">Napredni parametri koji kontrolišu ponašanje sortirnog algoritma.</Text>
           </VerticalStack>
+          {/* Score težine i percentili */}
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"14px"}}>
+            <thead>
+              <tr style={{borderBottom:"2px solid #e1e3e5"}}>
+                <th style={{textAlign:"left",padding:"6px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}></th>
+                <th style={{textAlign:"center",padding:"6px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>Težina (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label:"Score (kategorija)", wKey:"scoreWeightCategory" },
+                { label:"Varijante",          wKey:"scoreWeightVariants" },
+                { label:"Zalihe",             wKey:"scoreWeightInventory" },
+              ].map((row,i) => (
+                <tr key={row.label} style={{background:i%2===0?"#fafbfb":"white",borderBottom:"1px solid #f1f2f3"}}>
+                  <td style={{padding:"8px 12px",fontWeight:500}}>{row.label}</td>
+                  <td style={{padding:"8px 12px",textAlign:"center"}}>
+                    <input type="number" min="0" max="100" step="1"
+                      value={num(row.wKey)}
+                      onChange={e=>setNum(row.wKey,e.target.value)}
+                      style={{width:"64px",textAlign:"center",border:"1px solid #c9cccf",borderRadius:"6px",padding:"5px 6px",fontSize:"14px"}}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
           <div style={{display:"flex", gap:"16px", flexWrap:"wrap"}}>
 
             {/* Jitter */}
@@ -1008,50 +1036,6 @@ function ConfigTab({ config, title, onSave, onReset }) {
                 <br/><span style={{color:"#1a6b3a"}}>0 = uvijek isti redoslijed</span> ·
                 <span style={{color:"#b98900"}}> 0.25 = blaga varijacija</span> ·
                 <span style={{color:"#d72c0d"}}> &gt;0.5 = haotično</span>
-              </div>
-            </div>
-
-            {/* Varijante percentil */}
-            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
-                <div>
-                  <div style={{fontWeight:600, fontSize:"14px"}}>Varijante — percentil</div>
-                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Normalizacija broja varijanti</div>
-                </div>
-                <input
-                  type="number" min="50" max="100" step="1"
-                  value={num("variantPercentile")}
-                  onChange={e=>setNum("variantPercentile",e.target.value)}
-                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
-                />
-              </div>
-              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
-                Gornja granica za normalizaciju varijanti (25% težine scora).
-                <br/><span style={{color:"#1a6b3a"}}>95 = standard</span> ·
-                <span style={{color:"#b98900"}}> 75 = jači uticaj varijanti</span> ·
-                <span style={{color:"#d72c0d"}}> 100 = samo outlieri prave razliku</span>
-              </div>
-            </div>
-
-            {/* Zaliha percentil */}
-            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
-                <div>
-                  <div style={{fontWeight:600, fontSize:"14px"}}>Zaliha — percentil</div>
-                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Normalizacija zaliha</div>
-                </div>
-                <input
-                  type="number" min="50" max="100" step="1"
-                  value={num("inventoryPercentile")}
-                  onChange={e=>setNum("inventoryPercentile",e.target.value)}
-                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
-                />
-              </div>
-              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
-                Gornja granica za normalizaciju zaliha (10% težine scora).
-                <br/><span style={{color:"#1a6b3a"}}>95 = standard</span> ·
-                <span style={{color:"#b98900"}}> 75 = jači uticaj zaliha</span> ·
-                <span style={{color:"#d72c0d"}}> 100 = samo outlieri prave razliku</span>
               </div>
             </div>
 

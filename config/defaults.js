@@ -61,9 +61,9 @@ module.exports = {
   },
   maxSameTypeRun    : 3,
   maxSameCategoryRun: 4,
-  scoreWeightCategory : 0.65,
-  scoreWeightVariants : 0.25,
-  scoreWeightInventory: 0.10,
+  scoreWeightCategory : 65,
+  scoreWeightVariants : 25,
+  scoreWeightInventory: 10,
   variantPercentile   : 95,
   inventoryPercentile : 95,
   categoryScores: {

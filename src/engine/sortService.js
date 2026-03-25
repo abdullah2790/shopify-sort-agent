@@ -51,7 +51,10 @@ function calculateScores(products, categoryScores = {}, rangOverride = null, con
     const inventory = (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0);
     const varScore = Math.min(variants,  p95Var) / Math.max(p95Var, 1);
     const invScore = Math.min(inventory, p95Inv) / Math.max(p95Inv, 1);
-    const score = parseFloat((12 * (((catScore - 1) / 9) * 0.65 + varScore * 0.25 + invScore * 0.10)).toFixed(1));
+    const wCat = (config.scoreWeightCategory ?? 65) / 100;
+    const wVar = (config.scoreWeightVariants  ?? 25) / 100;
+    const wInv = (config.scoreWeightInventory ?? 10) / 100;
+    const score = parseFloat((12 * (((catScore - 1) / 9) * wCat + varScore * wVar + invScore * wInv)).toFixed(1));
 
     return { ...p, category, score, isSprinkler: false };
   });
