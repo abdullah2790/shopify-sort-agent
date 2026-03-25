@@ -16,13 +16,6 @@ const DEFAULT_WEATHER_CONFIG = {
   lastForecast: null,
 };
 
-// Rang → sezonski scoring koji se koristi pri sortiranju
-const RANG_TO_SEASON = {
-  Cold: "zima",
-  Mild: "proljece",
-  Warm: "ljeto",
-  Hot:  "ljeto",
-};
 
 // ── HTTP helper ────────────────────────────────────────────────────────────
 function httpsGet(url) {
@@ -64,9 +57,6 @@ function getRangForTemp(temp, ranges) {
   return temp < r[0].min ? r[0].name : r[r.length - 1].name;
 }
 
-function getRangSeason(rang) {
-  return RANG_TO_SEASON[rang] || null;
-}
 
 // ── DB helpers ─────────────────────────────────────────────────────────────
 async function getWeatherConfig(shopId) {
@@ -109,18 +99,18 @@ async function readAndStoreWeather(shopId) {
   return lastForecast;
 }
 
-// ── Returns season key override, or null if disabled / stale ──────────────
-async function getWeatherSeasonOverride(shopId) {
+// ── Returns current rang (Cold/Mild/Warm/Hot), or null if disabled / stale ─
+async function getWeatherRangOverride(shopId) {
   const cfg = await getWeatherConfig(shopId);
   if (!cfg.enabled || !cfg.lastForecast?.readAt) return null;
   const hoursSince = (Date.now() - new Date(cfg.lastForecast.readAt).getTime()) / (1000 * 60 * 60);
   if (hoursSince > 24) return null;
-  return getRangSeason(cfg.lastForecast.rang);
+  return cfg.lastForecast.rang || null;
 }
 
 module.exports = {
-  fetchWeather, getRangForTemp, getRangSeason,
+  fetchWeather, getRangForTemp,
   getWeatherConfig, saveWeatherConfig,
-  readAndStoreWeather, getWeatherSeasonOverride,
+  readAndStoreWeather, getWeatherRangOverride,
   DEFAULT_RANGES, DEFAULT_WEATHER_CONFIG,
 };

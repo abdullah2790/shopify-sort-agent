@@ -40,7 +40,7 @@ async function syncCategories(shopDomain, accessToken, shopId) {
           shopId,
           handle,
           cat,
-          existingRow ? existingRow.season_scores : JSON.stringify({ zima: 5, proljece: 5, ljeto: 5, jesen: 5 }),
+          existingRow ? existingRow.season_scores : JSON.stringify({ Cold: 5, Mild: 5, Warm: 5, Hot: 5 }),
         ]
       );
     }
@@ -110,7 +110,7 @@ async function getCategories(shopId) {
  * Sačuvaj season_scores za kategorije
  */
 async function saveSeasonScores(shopId, scores) {
-  // scores = [{ handle, season_scores: { zima, proljece, ljeto, jesen }, is_sprinkler? }]
+  // scores = [{ handle, season_scores: { Cold, Mild, Warm, Hot }, is_sprinkler? }]
   for (const { handle, season_scores, is_sprinkler } of scores) {
     await db.query(
       `UPDATE categories SET season_scores = $1, is_sprinkler = $2 WHERE shop_id = $3 AND handle = $4`,
@@ -121,7 +121,7 @@ async function saveSeasonScores(shopId, scores) {
 
 /**
  * Dohvati categoryScores objekt za sortiranje
- * Format: { "Jakne": { zima: 10, proljece: 5, ... }, ... }
+ * Format: { "Jakne": { Cold: 10, Mild: 5, Warm: 2, Hot: 1 }, ... }
  */
 async function getCategoryScoresForSort(shopId) {
   const cats = await getCategories(shopId);

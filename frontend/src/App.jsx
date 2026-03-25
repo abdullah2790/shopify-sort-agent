@@ -9,8 +9,14 @@ import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 
 const shop = new URLSearchParams(window.location.search).get("shop") || "";
-const SEASONS = ["zima","proljece","ljeto","jesen"];
-const SEASON_LABELS = { zima:"Zima", proljece:"Proljeće", ljeto:"Ljeto", jesen:"Jesen" };
+
+const RANGS = ["Cold", "Mild", "Warm", "Hot"];
+const RANG_INFO = {
+  Cold: { emoji:"❄️",  label:"Cold",  bg:"#e8f4f8", border:"#b0d4e8", color:"#1a5f7a" },
+  Mild: { emoji:"🌤",  label:"Mild",  bg:"#eaf7ee", border:"#a8d5b5", color:"#1a6b3a" },
+  Warm: { emoji:"☀️",  label:"Warm",  bg:"#fffbe6", border:"#f0d070", color:"#7a5a00" },
+  Hot:  { emoji:"🔥",  label:"Hot",   bg:"#fdecea", border:"#f0a0a0", color:"#7a1a1a" },
+};
 
 const DEFAULT_WEATHER_RANGES = [
   { name: "Cold", min: -20, max: 10 },
@@ -399,9 +405,9 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
     sprinklersRef.current = sp;
   }, [categories, scoresRef, sprinklersRef]);
 
-  function setScore(handle, season, val) {
+  function setScore(handle, rang, val) {
     setScores(s => {
-      const next = { ...s, [handle]: { ...(s[handle]||{}), [season]: parseFloat(val)||0 } };
+      const next = { ...s, [handle]: { ...(s[handle]||{}), [rang]: parseFloat(val)||0 } };
       scoresRef.current = next;
       return next;
     });
@@ -450,8 +456,22 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"14px"}}>
             <thead>
               <tr style={{borderBottom:"2px solid #e1e3e5"}}>
-                <th style={{textAlign:"left",padding:"10px 12px",fontWeight:600}}>Kategorija</th>
-                {SEASONS.map(s=><th key={s} style={{textAlign:"center",padding:"10px 12px",fontWeight:600,minWidth:"80px"}}>{SEASON_LABELS[s]}</th>)}
+                <th style={{textAlign:"left",padding:"10px 12px",fontWeight:600,color:"#202223"}}>Kategorija</th>
+                {RANGS.map(rang => {
+                  const ri = RANG_INFO[rang];
+                  return (
+                    <th key={rang} style={{textAlign:"center",padding:"8px 12px",fontWeight:600,minWidth:"90px"}}>
+                      <div style={{
+                        display:"inline-flex", alignItems:"center", gap:"4px",
+                        padding:"4px 10px", borderRadius:"8px",
+                        background: ri.bg, border:`1px solid ${ri.border}`, color: ri.color,
+                        fontSize:"13px",
+                      }}>
+                        {ri.emoji} {ri.label}
+                      </div>
+                    </th>
+                  );
+                })}
                 <th style={{textAlign:"center",padding:"10px 12px",fontWeight:600,minWidth:"80px"}}>Sprinkler</th>
               </tr>
             </thead>
@@ -459,12 +479,12 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
               {categories.map((cat, i) => (
                 <tr key={cat.handle} style={{background:i%2===0?"#fafbfb":"white",borderBottom:"1px solid #f1f2f3"}}>
                   <td style={{padding:"8px 12px",fontWeight:500}}>{cat.name}</td>
-                  {SEASONS.map(season => (
-                    <td key={season} style={{padding:"4px 8px",textAlign:"center"}}>
+                  {RANGS.map(rang => (
+                    <td key={rang} style={{padding:"4px 8px",textAlign:"center"}}>
                       <input
                         type="number" min="1" max="10" step="0.5"
-                        value={scores[cat.handle]?.[season] ?? 5}
-                        onChange={e=>setScore(cat.handle, season, e.target.value)}
+                        value={scores[cat.handle]?.[rang] ?? 5}
+                        onChange={e=>setScore(cat.handle, rang, e.target.value)}
                         style={{width:"56px",textAlign:"center",border:"1px solid #c9cccf",borderRadius:"4px",padding:"5px",fontSize:"14px"}}
                       />
                     </td>
@@ -764,12 +784,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
 }
 
 // ── Weather Tab ────────────────────────────────────────────────────────────
-const RANG_META = {
-  Cold: { emoji: "❄️",  label: "Hladno",   season: "Zima",     seasonKey: "zima",     bg: "#e8f4f8", border: "#b0d4e8" },
-  Mild: { emoji: "🌤",  label: "Umjereno", season: "Proljeće", seasonKey: "proljece", bg: "#eaf7ee", border: "#a8d5b5" },
-  Warm: { emoji: "☀️",  label: "Toplo",    season: "Ljeto",    seasonKey: "ljeto",    bg: "#fffbe6", border: "#f0d070" },
-  Hot:  { emoji: "🔥",  label: "Vruće",    season: "Ljeto",    seasonKey: "ljeto",    bg: "#fdecea", border: "#f0a0a0" },
-};
+// Koristimo isti RANG_INFO koji se koristi i u Kategorijama
 
 function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
   const [cfg, setCfg]   = useState({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
@@ -785,7 +800,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
   }));
 
   const forecast = cfg.lastForecast;
-  const rangMeta = forecast ? (RANG_META[forecast.rang] || {}) : null;
+  const rangMeta = forecast ? (RANG_INFO[forecast.rang] || {}) : null;
 
   async function handleSave() {
     setSaving(true);
@@ -814,7 +829,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
       const updated = { ...cfg, lastForecast: d.forecast };
       setCfg(updated);
       onSaved(updated);
-      onSuccess(`✅ Prognoza očitana: ${d.forecast.temp}°C — ${RANG_META[d.forecast.rang]?.label || d.forecast.rang}`);
+      onSuccess(`✅ Prognoza očitana: ${d.forecast.temp}°C — ${RANG_INFO[d.forecast.rang]?.label || d.forecast.rang}`);
     } catch(e) { onError(e.message); }
     finally { setReading(false); }
   }
@@ -864,7 +879,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
                     {rangMeta.emoji} {rangMeta.label}
                   </span>
                   <Text variant="bodySm" tone="subdued">
-                    → scoring: <strong>{rangMeta.season}</strong>
+                    → koristi <strong>{rangMeta.label}</strong> scoreve iz Kategorija
                   </Text>
                 </div>
                 <Text variant="bodySm" tone="subdued">
@@ -917,7 +932,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
           <VerticalStack gap="100">
             <Text as="h3" variant="headingSm">Temperaturni rangovi</Text>
             <Text tone="subdued" variant="bodySm">
-              Definiši temperaturne granice za svaki rang. Rang određuje koji sezonski scoring algoritam koristi pri sortiranju.
+              Definiši temperaturne granice za svaki rang. Rang direktno određuje koji stupac scoreva iz taba Kategorije se koristi pri sortiranju.
             </Text>
           </VerticalStack>
           <div style={{overflowX:"auto"}}>
@@ -927,23 +942,27 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
                   <th style={{textAlign:"left",   padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Rang</th>
                   <th style={{textAlign:"center", padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Minimum (°C)</th>
                   <th style={{textAlign:"center", padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Maksimum (°C)</th>
-                  <th style={{textAlign:"center", padding:"10px 14px", fontWeight:600, color:"#6d7175", fontSize:"12px", textTransform:"uppercase"}}>Scoring sezone</th>
                 </tr>
               </thead>
               <tbody>
-                {ranges.map((rang, i) => {
-                  const meta = RANG_META[rang.name] || {};
+                {ranges.map((rang) => {
+                  const meta = RANG_INFO[rang.name] || {};
                   return (
-                    <tr key={rang.name} style={{background: meta.bg || (i%2===0?"#fafbfb":"white"), borderBottom:"1px solid #f1f2f3"}}>
-                      <td style={{padding:"8px 14px"}}>
-                        <span style={{fontWeight:600}}>{meta.emoji} {meta.label || rang.name}</span>
+                    <tr key={rang.name} style={{background: meta.bg, borderBottom:"1px solid #f1f2f3"}}>
+                      <td style={{padding:"10px 14px"}}>
+                        <span style={{
+                          display:"inline-flex", alignItems:"center", gap:"6px",
+                          fontWeight:700, fontSize:"14px", color: meta.color,
+                        }}>
+                          {meta.emoji} {meta.label}
+                        </span>
                       </td>
                       <td style={{padding:"6px 14px", textAlign:"center"}}>
                         <input
                           type="number" step="1"
                           value={rang.min}
                           onChange={e => updateRange(rang.name, "min", e.target.value)}
-                          style={{width:"72px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                          style={{width:"72px", textAlign:"center", border:`1px solid ${meta.border}`, borderRadius:"6px", padding:"5px 6px", fontSize:"14px", background:"white"}}
                         />
                       </td>
                       <td style={{padding:"6px 14px", textAlign:"center"}}>
@@ -951,17 +970,8 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
                           type="number" step="1"
                           value={rang.max}
                           onChange={e => updateRange(rang.name, "max", e.target.value)}
-                          style={{width:"72px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                          style={{width:"72px", textAlign:"center", border:`1px solid ${meta.border}`, borderRadius:"6px", padding:"5px 6px", fontSize:"14px", background:"white"}}
                         />
-                      </td>
-                      <td style={{padding:"6px 14px", textAlign:"center"}}>
-                        <span style={{
-                          display:"inline-block", padding:"3px 10px", borderRadius:"10px",
-                          background:"white", border:`1px solid ${meta.border || "#e1e3e5"}`,
-                          fontSize:"12px", fontWeight:600,
-                        }}>
-                          {meta.season || "—"}
-                        </span>
                       </td>
                     </tr>
                   );
@@ -971,8 +981,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess }) {
           </div>
           <Banner tone="info">
             <p>
-              <strong>Cold / Mild</strong> → koristi score za <strong>Zima / Proljeće</strong> kategorije. &nbsp;
-              <strong>Warm / Hot</strong> → koristi score za <strong>Ljeto</strong>.
+              Na osnovu izmjerene temperature određuje se rang. Rang = stupac u tabeli Kategorija → score za svaki proizvod.
             </p>
           </Banner>
         </VerticalStack>

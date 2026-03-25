@@ -10,7 +10,7 @@ const { verifyWebhook, registerWebhooks, handleAppUninstalled } = require("./web
 const { buildInstallUrl, exchangeCodeForToken, getCollections } = require("./api/shopifyClient");
 const { runSort, runSortAllCollections } = require("./engine/sortService");
 const { syncCategories, getCategories, saveSeasonScores } = require("./engine/categoryService");
-const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather, getWeatherSeasonOverride } = require("./engine/weatherService");
+const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather, getWeatherRangOverride } = require("./engine/weatherService");
 const DEFAULTS = require("../config/defaults");
 
 const app  = express();
@@ -180,9 +180,9 @@ app.post("/api/sort", async (req, res) => {
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     const colRow = await db.query(`SELECT collection_config FROM watched_collections WHERE shop_id=$1 AND collection_id=$2`, [s.id, collectionId]);
-    const seasonOverride = await getWeatherSeasonOverride(s.id).catch(() => null);
+    const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
     res.status(202).json({ message: "Sort pokrenut" });
-    await runSort({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, trigger: "manual", seasonOverride });
+    await runSort({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, trigger: "manual", rangOverride });
   } catch (e) { console.error("Sort greška:", e.message); }
 });
 
@@ -190,9 +190,9 @@ app.post("/api/sort-all", async (req, res) => {
   const { shop } = req.body;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
-    const seasonOverride = await getWeatherSeasonOverride(s.id).catch(() => null);
+    const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
     res.status(202).json({ message: "Sort svih pokrenut" });
-    await runSortAllCollections({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "manual", seasonOverride });
+    await runSortAllCollections({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "manual", rangOverride });
   } catch (e) { console.error("Sort all greška:", e.message); }
 });
 
@@ -349,13 +349,13 @@ const scheduleManager = {
           }
         }
 
-        // 2. Dohvati season override iz prognoze
-        const seasonOverride = await getWeatherSeasonOverride(s.id).catch(() => null);
-        if (seasonOverride) console.log(`🌡 [${shopDomain}] Season override: ${seasonOverride}`);
+        // 2. Dohvati rang override iz prognoze
+        const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
+        if (rangOverride) console.log(`🌡 [${shopDomain}] Rang override: ${rangOverride}`);
 
         // 3. Sortiraj sve kolekcije
         console.log(`⏰ [${shopDomain}] Schedule sort pokrenut`);
-        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron", seasonOverride });
+        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron", rangOverride });
       } catch (err) {
         console.error(`❌ [${shopDomain}] Schedule greška (cron ostaje aktivan):`, err.message);
       }

@@ -4,12 +4,13 @@ const { getCategoryScoresForSort } = require("./categoryService");
 const db = require("../db");
 const DEFAULTS = require("../../config/defaults");
 
-function getCurrentSeason() {
+// Kalendarski fallback rang kada nije dostupna vremenska prognoza
+function getCurrentRang() {
   const m = new Date().getMonth() + 1;
-  if (m >= 12 || m <= 2) return "zima";
-  if (m >= 3  && m <= 5) return "proljece";
-  if (m >= 6  && m <= 8) return "ljeto";
-  return "jesen";
+  if (m >= 12 || m <= 2) return "Cold";  // Dec–Feb
+  if (m >= 3  && m <= 5) return "Mild";  // Mar–Maj
+  if (m >= 6  && m <= 8) return "Hot";   // Jun–Aug
+  return "Mild";                          // Sep–Nov
 }
 
 function percentile(arr, p) {
@@ -31,8 +32,8 @@ function extractCategory(p) {
   return String(p.product_type || "").trim();
 }
 
-function calculateScores(products, categoryScores = {}, seasonOverride = null) {
-  const season = seasonOverride || getCurrentSeason();
+function calculateScores(products, categoryScores = {}, rangOverride = null) {
+  const rang = rangOverride || getCurrentRang();
   const variantCounts   = products.map(p => p.variants?.length || 0);
   const inventoryCounts = products.map(p => (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0));
   const p95Var = percentile(variantCounts, 95);
@@ -45,7 +46,7 @@ function calculateScores(products, categoryScores = {}, seasonOverride = null) {
     const category = extractCategory(p);
     const catInfo = categoryScores[category] || {};
     if (catInfo.isSprinkler) return { ...p, category, score: -1, isSprinkler: true };
-    const catScore = catInfo[season] ?? 5;
+    const catScore = catInfo[rang] ?? 5;
     const variants  = p.variants?.length || 0;
     const inventory = (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0);
     const varScore = Math.min(variants,  p95Var) / Math.max(p95Var, 1);
@@ -66,7 +67,7 @@ function mergeConfig(shopConfig, collectionConfig) {
   return { ...base, ...collectionConfig };
 }
 
-async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, trigger = "manual", seasonOverride = null }) {
+async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, trigger = "manual", rangOverride = null }) {
   const start = Date.now();
   try {
     const config = mergeConfig(shopConfig, collectionConfig);
@@ -77,7 +78,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
     const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
     if (!products.length) return log(shopId, collectionId, trigger, 0, Date.now()-start, "success");
 
-    const scored = calculateScores(products, categoryScores, seasonOverride);
+    const scored = calculateScores(products, categoryScores, rangOverride);
     const sorted = sortProducts(scored, config);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
@@ -89,7 +90,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
   }
 }
 
-async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual", seasonOverride = null }) {
+async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual", rangOverride = null }) {
   const res = await db.query(
     `SELECT collection_id, collection_config FROM watched_collections WHERE shop_id = $1 AND active = TRUE`,
     [shopId]
@@ -102,7 +103,7 @@ async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConf
       shopConfig,
       collectionConfig: row.collection_config,
       trigger,
-      seasonOverride,
+      rangOverride,
     }));
     await new Promise(r => setTimeout(r, 300));
   }
@@ -114,4 +115,4 @@ async function log(shopId, colId, trigger, count, duration, status, err=null) {
   return { collectionId: colId, productsSorted: count, status, error: err };
 }
 
-module.exports = { runSort, runSortAllCollections, getCurrentSeason, mergeConfig };
+module.exports = { runSort, runSortAllCollections, getCurrentRang, mergeConfig };

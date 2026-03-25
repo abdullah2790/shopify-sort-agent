@@ -33,7 +33,7 @@ async function migrate() {
     await client.query(`CREATE TABLE IF NOT EXISTS categories (
       id SERIAL PRIMARY KEY, shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
       handle VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL,
-      season_scores JSONB NOT NULL DEFAULT '{"zima":5,"proljece":5,"ljeto":5,"jesen":5}',
+      season_scores JSONB NOT NULL DEFAULT '{"Cold":5,"Mild":5,"Warm":5,"Hot":5}',
       synced_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(shop_id, handle)
     );`);
@@ -60,6 +60,18 @@ async function migrate() {
     await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_sprinkler BOOLEAN DEFAULT FALSE;`);
 
     await client.query(`ALTER TABLE shop_configs ADD COLUMN IF NOT EXISTS weather_config JSONB DEFAULT NULL;`);
+
+    // Migracija: pretvori stare season_scores (zima/proljece/ljeto/jesen) u rang formu (Cold/Mild/Warm/Hot)
+    await client.query(`
+      UPDATE categories
+      SET season_scores = jsonb_build_object(
+        'Cold', COALESCE((season_scores->>'zima')::numeric,    5),
+        'Mild', ROUND(((COALESCE((season_scores->>'proljece')::numeric, 5) + COALESCE((season_scores->>'jesen')::numeric, 5)) / 2.0)::numeric, 1),
+        'Warm', COALESCE((season_scores->>'ljeto')::numeric,   5),
+        'Hot',  COALESCE((season_scores->>'ljeto')::numeric,   5)
+      )
+      WHERE season_scores ? 'zima';
+    `);
 
     await client.query("COMMIT");
     console.log("✅ Migracija uspješna");
