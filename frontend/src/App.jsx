@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import {
   AppProvider, Page, Card, Tabs, ResourceList, ResourceItem,
   Text, Button, Badge, Banner, Spinner, Select,
@@ -73,9 +73,28 @@ function SortApp() {
   const [previewModal, setPreviewModal] = useState(null);
   const [addingAll, setAddingAll] = useState(false);
   const [confirmAddAll, setConfirmAddAll] = useState(false);
-  const [dirtyTabs, setDirtyTabs] = useState({});
+  const dirtyTabsRef = useRef({});
+  const tabsContainerRef = useRef(null);
   const [confirmLeave, setConfirmLeave] = useState({ open: false, targetTab: null });
-  function markTabDirty(tabIdx, dirty) { setDirtyTabs(d => ({...d, [tabIdx]: dirty})); }
+  function markTabDirty(tabIdx, dirty) {
+    dirtyTabsRef.current[tabIdx] = dirty;
+    // Update tab dot directly in the DOM — no App re-render
+    if (tabsContainerRef.current) {
+      const btns = tabsContainerRef.current.querySelectorAll('[role="tab"]');
+      if (btns[tabIdx]) {
+        dirty ? btns[tabIdx].setAttribute('data-dirty', '') : btns[tabIdx].removeAttribute('data-dirty');
+      }
+    }
+  }
+
+  // Re-apply dirty dots after any render (Polaris may rebuild tab buttons on tab switch)
+  useLayoutEffect(() => {
+    if (!tabsContainerRef.current) return;
+    const btns = tabsContainerRef.current.querySelectorAll('[role="tab"]');
+    btns.forEach((btn, idx) => {
+      dirtyTabsRef.current[idx] ? btn.setAttribute('data-dirty', '') : btn.removeAttribute('data-dirty');
+    });
+  });
 
   // Ref na trenutne scoreve kategorija — za auto-save
   const catScoresRef = useRef({});
@@ -221,10 +240,10 @@ function SortApp() {
 
   const tabs = [
     { id:"collections", content:"Kolekcije" },
-    { id:"categories",  content:`Kategorije (${categories.length})${dirtyTabs[1]?" ●":""}` },
-    { id:"config",      content:`Opće postavke${dirtyTabs[2]?" ●":""}` },
-    { id:"schedule",    content:`Raspored${dirtyTabs[3]?" ●":""}` },
-    { id:"weather",     content:`Prognoza${dirtyTabs[4]?" ●":""}` },
+    { id:"categories",  content:`Kategorije (${categories.length})` },
+    { id:"config",      content:"Opće postavke" },
+    { id:"schedule",    content:"Raspored" },
+    { id:"weather",     content:"Prognoza" },
     { id:"logs",        content:"Logovi" },
   ];
 
@@ -242,10 +261,13 @@ function SortApp() {
         {error   && <Banner tone="critical" onDismiss={()=>setError(null)}><p>{error}</p></Banner>}
         {success && <Banner tone="success"  onDismiss={()=>setSuccess(null)}><p>{success}</p></Banner>}
 
-        <Tabs tabs={tabs} selected={tab} onSelect={(newTab) => {
-          if (dirtyTabs[tab]) { setConfirmLeave({ open: true, targetTab: newTab }); return; }
-          setTab(newTab);
-        }} />
+        <div ref={tabsContainerRef}>
+          <Tabs tabs={tabs} selected={tab} onSelect={(newTab) => {
+            if (dirtyTabsRef.current[tab]) { setConfirmLeave({ open: true, targetTab: newTab }); return; }
+            setTab(newTab);
+          }} />
+        </div>
+        <style>{`[role="tab"][data-dirty]::after { content:" ●"; color:#ffc107; font-size:10px; vertical-align:middle; }`}</style>
 
         {/* ── Tab 0: Kolekcije ── */}
         {tab===0 && (
