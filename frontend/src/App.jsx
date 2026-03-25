@@ -613,11 +613,13 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const origRef = useRef(schedule);
+  const prevDirtyRef = useRef(false);
 
-  useEffect(() => { origRef.current = schedule; setCfg({ ...schedule }); setIsDirty(false); onDirtyChange(false); }, [schedule]);
+  useEffect(() => { origRef.current = schedule; setCfg({ ...schedule }); setIsDirty(false); prevDirtyRef.current = false; onDirtyChange(false); }, [schedule]);
   useEffect(() => {
     const dirty = JSON.stringify(cfg) !== JSON.stringify(origRef.current);
-    setIsDirty(dirty); onDirtyChange(dirty);
+    setIsDirty(dirty);
+    if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
   }, [JSON.stringify(cfg)]);
 
   const intervalOptions = [
@@ -910,6 +912,7 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
     setIsDirty(false); onDirtyChange(false);
   }, [config, categories]);
 
+  const prevDirtyRef = useRef(false);
   useEffect(() => {
     if (!origCfgRef.current) return;
     const o = origCfgRef.current;
@@ -918,7 +921,8 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
       JSON.stringify(bannedList) !== JSON.stringify(o.bannedList) ||
       JSON.stringify(fallbacks)  !== JSON.stringify(o.fallbacks) ||
       JSON.stringify(accOrder)   !== JSON.stringify(o.accOrder);
-    setIsDirty(dirty); onDirtyChange(dirty);
+    setIsDirty(dirty);
+    if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
   }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder)]);
 
   function addBanned(val) {
@@ -1428,16 +1432,18 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
   const [isDirty, setIsDirty] = useState(false);
   const [reading, setReading] = useState(false);
   const origRef = useRef({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
+  const prevDirtyRef = useRef(false);
 
   useEffect(() => {
     const merged = { ...DEFAULT_WEATHER_CONFIG, ...weatherConfig };
     origRef.current = merged;
     setCfg(merged);
-    setIsDirty(false); onDirtyChange(false);
+    setIsDirty(false); prevDirtyRef.current = false; onDirtyChange(false);
   }, [weatherConfig]);
   useEffect(() => {
     const dirty = JSON.stringify(cfg) !== JSON.stringify(origRef.current);
-    setIsDirty(dirty); onDirtyChange(dirty);
+    setIsDirty(dirty);
+    if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
   }, [JSON.stringify(cfg)]);
 
   const hourOptions = Array.from({length:24}, (_,i) => ({
