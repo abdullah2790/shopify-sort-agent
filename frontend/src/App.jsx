@@ -3,7 +3,7 @@ import {
   AppProvider, Page, Card, Tabs, ResourceList, ResourceItem,
   Text, Button, Badge, Banner, Spinner, Select,
   VerticalStack, HorizontalStack, EmptyState, Modal, DataTable,
-  TextField, FormLayout,
+  TextField, FormLayout, Combobox, Listbox, AutoSelection,
 } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
@@ -31,6 +31,7 @@ function SortApp() {
   const [selectedCols, setSelectedCols] = useState([]);
   const [addModal, setAddModal]     = useState(false);
   const [selected, setSelected]     = useState("");
+  const [searchValue, setSearchValue] = useState("");
   const [configModal, setConfigModal] = useState(null);
 
   // Ref na trenutne scoreve kategorija — za auto-save
@@ -103,7 +104,7 @@ function SortApp() {
     const col = collections.find(c=>c.id===selected); if(!col) return;
     try {
       await fetch("/api/watched-collections", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId:col.id, collectionTitle:col.title, active:true}) });
-      setAddModal(false); setSelected(""); loadData();
+      setAddModal(false); setSelected(""); setSearchValue(""); loadData();
     } catch { setError("Greška."); }
   }
 
@@ -155,10 +156,11 @@ function SortApp() {
   );
 
   const activeWatched = watched.filter(w=>w.active);
-  const colOptions = [
-    { label:"Odaberi kolekciju...", value:"" },
-    ...collections.filter(c=>!activeWatched.find(w=>w.collection_id===c.id)).map(c=>({label:c.title, value:c.id})),
-  ];
+  const availableCollections = collections.filter(c=>!activeWatched.find(w=>w.collection_id===c.id));
+  const filteredCollections = searchValue
+    ? availableCollections.filter(c=>c.title.toLowerCase().includes(searchValue.toLowerCase()))
+    : availableCollections;
+  const selectedCollectionTitle = selected ? (collections.find(c=>c.id===selected)?.title || "") : "";
 
   const tabs = [
     { id:"collections", content:"Kolekcije" },
@@ -299,12 +301,36 @@ function SortApp() {
         )}
       </VerticalStack>
 
-      <Modal open={addModal} onClose={()=>setAddModal(false)} title="Dodaj kolekciju"
+      <Modal open={addModal} onClose={()=>{ setAddModal(false); setSelected(""); setSearchValue(""); }} title="Dodaj kolekciju"
         primaryAction={{content:"Dodaj", onAction:addCollection, disabled:!selected}}
-        secondaryActions={[{content:"Odustani", onAction:()=>setAddModal(false)}]}
+        secondaryActions={[{content:"Odustani", onAction:()=>{ setAddModal(false); setSelected(""); setSearchValue(""); }}]}
       >
         <Modal.Section>
-          <Select label="Kolekcija" options={colOptions} value={selected} onChange={setSelected} />
+          <Combobox
+            activator={
+              <Combobox.TextField
+                label="Kolekcija"
+                value={selected ? selectedCollectionTitle : searchValue}
+                onChange={(val) => { setSearchValue(val); if (!val) setSelected(""); }}
+                placeholder="Pretraži kolekcije..."
+                autoComplete="off"
+              />
+            }
+          >
+            {filteredCollections.length > 0 ? (
+              <Listbox onSelect={(val) => { setSelected(val); setSearchValue(""); }}>
+                {filteredCollections.map(c => (
+                  <Listbox.Option key={c.id} value={c.id} selected={selected===c.id}>
+                    {c.title}
+                  </Listbox.Option>
+                ))}
+              </Listbox>
+            ) : (
+              <Listbox onSelect={()=>{}}>
+                <Listbox.Option value="" disabled>Nema rezultata</Listbox.Option>
+              </Listbox>
+            )}
+          </Combobox>
         </Modal.Section>
       </Modal>
 
@@ -550,69 +576,110 @@ function ConfigTab({ config, title, onSave, onReset }) {
     <VerticalStack gap="500">
       {title && <Text as="h2" variant="headingMd">{title}</Text>}
 
+      {/* Kvote po stranici */}
       <Card>
         <VerticalStack gap="400">
-          <Text as="h3" variant="headingSm">Kvote po stranici</Text>
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Kvote po stranici</Text>
+            <Text tone="subdued" variant="bodySm">Ukupan zbroj mora biti tačno 24 proizvoda po stranici.</Text>
+          </VerticalStack>
           <FormLayout>
-            <FormLayout.Group>
+            <FormLayout.Group condensed>
               <TextField label="Žene" type="number" min="0" value={num("womenAdultsPerPage")} onChange={v=>setPageNum("womenAdultsPerPage",v)} />
               <TextField label="Muškarci" type="number" min="0" value={num("menAdultsPerPage")} onChange={v=>setPageNum("menAdultsPerPage",v)} />
               <TextField label="Djevojčice" type="number" min="0" value={num("girlsPerPage")} onChange={v=>setPageNum("girlsPerPage",v)} />
-            </FormLayout.Group>
-            <FormLayout.Group>
               <TextField label="Dječaci" type="number" min="0" value={num("boysPerPage")} onChange={v=>setPageNum("boysPerPage",v)} />
-              <TextField label="Bebe" type="number" min="0" value={num("babiesPerPage")} onChange={v=>setPageNum("babiesPerPage",v)} />
-              <TextField label="Ženske aksesoar" type="number" min="0" value={num("femaleAccessoriesPerPage")} onChange={v=>setPageNum("femaleAccessoriesPerPage",v)} />
             </FormLayout.Group>
-            <FormLayout.Group>
-              <TextField label="Muške aksesoar" type="number" min="0" value={num("maleAccessoriesPerPage")} onChange={v=>setPageNum("maleAccessoriesPerPage",v)} />
+            <FormLayout.Group condensed>
+              <TextField label="Bebe" type="number" min="0" value={num("babiesPerPage")} onChange={v=>setPageNum("babiesPerPage",v)} />
+              <TextField label="Žen. aksesoar" type="number" min="0" value={num("femaleAccessoriesPerPage")} onChange={v=>setPageNum("femaleAccessoriesPerPage",v)} />
+              <TextField label="Muš. aksesoar" type="number" min="0" value={num("maleAccessoriesPerPage")} onChange={v=>setPageNum("maleAccessoriesPerPage",v)} />
               <Select label="Ko ide prvi"
                 options={[{label:"Auto",value:"auto"},{label:"Žene",value:"Žene"},{label:"Muškarci",value:"Muškarci"}]}
                 value={cfg.firstGender||"auto"} onChange={v=>setStr("firstGender",v)}
               />
             </FormLayout.Group>
           </FormLayout>
-          <HorizontalStack align="space-between" blockAlign="center">
+          <div style={{
+            display:"inline-flex", alignItems:"center", gap:"8px",
+            padding:"8px 14px", borderRadius:"8px",
+            background: pageTotalValid ? "#f1faf5" : "#fff4f4",
+            border: `1px solid ${pageTotalValid ? "#b7dfca" : "#ffd2d2"}`,
+          }}>
+            <span style={{fontSize:"18px"}}>{pageTotalValid ? "✅" : "⚠️"}</span>
             <Text variant="bodySm" tone={pageTotalValid ? "success" : "critical"}>
-              Ukupno: <strong>{pageTotal} / 24</strong>{!pageTotalValid && ` — mora biti tačno 24`}
+              Ukupno: <strong>{pageTotal} / 24</strong>
+              {!pageTotalValid && <span style={{marginLeft:"6px"}}>— mora biti tačno 24</span>}
             </Text>
-          </HorizontalStack>
+          </div>
         </VerticalStack>
       </Card>
 
+      {/* Penali diversifikacije */}
       <Card>
         <VerticalStack gap="400">
-          <Text as="h3" variant="headingSm">Penali diversifikacije</Text>
-          <Text tone="subdued" variant="bodySm">Penalty &gt; 12 = nikad isti zaredom.</Text>
-          <FormLayout>
-            <FormLayout.Group>
-              <TextField label="Ista kategorija (prev1)" type="number" value={num("penaltySameCategory")} onChange={v=>setNum("penaltySameCategory",v)} />
-              <TextField label="Ista boja (prev1)" type="number" value={num("penaltySameColor")} onChange={v=>setNum("penaltySameColor",v)} />
-              <TextField label="Isti tip (prev1)" type="number" value={num("penaltySameType")} onChange={v=>setNum("penaltySameType",v)} />
-            </FormLayout.Group>
-            <FormLayout.Group>
-              <TextField label="Kategorija (prev2)" type="number" value={num("penaltyInLast2Category")} onChange={v=>setNum("penaltyInLast2Category",v)} />
-              <TextField label="Boja (prev2)" type="number" value={num("penaltyInLast2Color")} onChange={v=>setNum("penaltyInLast2Color",v)} />
-              <TextField label="Tip (prev2)" type="number" value={num("penaltyInLast2Type")} onChange={v=>setNum("penaltyInLast2Type",v)} />
-            </FormLayout.Group>
-            <FormLayout.Group>
-              <TextField label="Kategorija (prev3)" type="number" value={num("penaltyInLast3Category")} onChange={v=>setNum("penaltyInLast3Category",v)} />
-              <TextField label="Boja (prev3)" type="number" value={num("penaltyInLast3Color")} onChange={v=>setNum("penaltyInLast3Color",v)} />
-              <TextField label="Tip (prev3)" type="number" value={num("penaltyInLast3Type")} onChange={v=>setNum("penaltyInLast3Type",v)} />
-            </FormLayout.Group>
-          </FormLayout>
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Penali diversifikacije</Text>
+            <Text tone="subdued" variant="bodySm">
+              Penalty &gt; 12 = nikad isti zaredom. Veći broj = stroža diversifikacija.
+            </Text>
+          </VerticalStack>
+
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"14px",minWidth:"400px"}}>
+              <thead>
+                <tr style={{borderBottom:"2px solid #e1e3e5"}}>
+                  <th style={{textAlign:"left",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>Atribut</th>
+                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>prev1</th>
+                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>prev2</th>
+                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>prev3</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label:"Kategorija", k1:"penaltySameCategory",   k2:"penaltyInLast2Category", k3:"penaltyInLast3Category" },
+                  { label:"Boja",       k1:"penaltySameColor",      k2:"penaltyInLast2Color",    k3:"penaltyInLast3Color" },
+                  { label:"Tip",        k1:"penaltySameType",       k2:"penaltyInLast2Type",     k3:"penaltyInLast3Type" },
+                ].map((row, i) => (
+                  <tr key={row.label} style={{background:i%2===0?"#fafbfb":"white",borderBottom:"1px solid #f1f2f3"}}>
+                    <td style={{padding:"8px 12px",fontWeight:500}}>{row.label}</td>
+                    {[row.k1, row.k2, row.k3].map(k => (
+                      <td key={k} style={{padding:"6px 12px",textAlign:"center"}}>
+                        <input
+                          type="number" min="0" step="1"
+                          value={cfg[k] ?? ""}
+                          onChange={e=>setNum(k, e.target.value)}
+                          style={{width:"60px",textAlign:"center",border:"1px solid #c9cccf",borderRadius:"6px",padding:"5px 6px",fontSize:"14px"}}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </VerticalStack>
       </Card>
 
+      {/* Zabranjene kategorije i tuning */}
       <Card>
         <VerticalStack gap="400">
-          <Text as="h3" variant="headingSm">Zabranjene kategorije i ostalo</Text>
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Zabranjene kategorije i fino podešavanje</Text>
+            <Text tone="subdued" variant="bodySm">Kategorije koje se ne prikazuju na vrhu, te parametri za podešavanje algoritma.</Text>
+          </VerticalStack>
           <FormLayout>
-            <TextField label="Zabranjene kategorije (zarez)" value={bannedInput} onChange={setBannedInput} placeholder="Setovi, Potkošulje" />
-            <FormLayout.Group>
-              <TextField label="Broj zabranjenih pozicija" type="number" value={num("banTopN")} onChange={v=>setNum("banTopN",v)} />
-              <TextField label="Jitter" type="number" value={num("jitter")} onChange={v=>setNum("jitter",v)} helpText="0.25" />
-              <TextField label="Relax korak" type="number" value={num("relaxStep")} onChange={v=>setNum("relaxStep",v)} helpText="0.80" />
+            <TextField
+              label="Zabranjene kategorije"
+              value={bannedInput}
+              onChange={setBannedInput}
+              placeholder="Setovi, Potkošulje"
+              helpText="Unesi nazive kategorija odvojene zarezom."
+            />
+            <FormLayout.Group condensed>
+              <TextField label="Zabranjenih pozicija" type="number" value={num("banTopN")} onChange={v=>setNum("banTopN",v)} helpText="Broj prvih pozicija" />
+              <TextField label="Jitter" type="number" value={num("jitter")} onChange={v=>setNum("jitter",v)} helpText="Preporučeno: 0.25" />
+              <TextField label="Relax korak" type="number" value={num("relaxStep")} onChange={v=>setNum("relaxStep",v)} helpText="Preporučeno: 0.80" />
             </FormLayout.Group>
           </FormLayout>
         </VerticalStack>
@@ -620,7 +687,7 @@ function ConfigTab({ config, title, onSave, onReset }) {
 
       <HorizontalStack align="space-between">
         {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>}
-        <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid}>Sačuvaj</Button>
+        <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid}>Sačuvaj postavke</Button>
       </HorizontalStack>
     </VerticalStack>
   );

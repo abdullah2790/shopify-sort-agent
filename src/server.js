@@ -74,7 +74,7 @@ app.get("/api/watched-collections", async (req, res) => {
   const { shop } = req.query;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
-    const r = await db.query(`SELECT * FROM watched_collections WHERE shop_id = $1 ORDER BY collection_title`, [s.id]);
+    const r = await db.query(`SELECT * FROM watched_collections WHERE shop_id = $1 ORDER BY id`, [s.id]);
     res.json({ collections: r.rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
