@@ -38,6 +38,8 @@ const DEFAULT_FALLBACKS = {
   accW:   ["women", "unisex", "men", "other"],
   accM:   ["men", "unisex", "women", "other"],
 };
+const EMPTY_CATEGORIES = []; // stable ref — prevents ConfigTab useEffect from firing on every render when categories not passed
+
 const FALLBACK_OPTIONS = [
   { value:"women",  label:"Žene" },
   { value:"men",    label:"Muškarci" },
@@ -258,8 +260,9 @@ function SortApp() {
       ]}
     >
       <VerticalStack gap="400">
-        {error   && <Banner tone="critical" onDismiss={()=>setError(null)}><p>{error}</p></Banner>}
-        {success && <Banner tone="success"  onDismiss={()=>setSuccess(null)}><p>{success}</p></Banner>}
+        {error   && <AppToast message={error}   type="error"   onClose={()=>setError(null)} />}
+        {success && <AppToast message={success} type="success" onClose={()=>setSuccess(null)} />}
+        <style>{`@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}`}</style>
 
         <div ref={tabsContainerRef}>
           <Tabs tabs={tabs} selected={tab} onSelect={(newTab) => {
@@ -799,6 +802,28 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
   );
 }
 
+// ── App Toast ───────────────────────────────────────────────────────────────
+function AppToast({ message, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 4500); return () => clearTimeout(t); }, [message]);
+  const ok = type === "success";
+  return (
+    <div style={{
+      position:"fixed", top:"20px", right:"20px", zIndex:9999,
+      display:"flex", alignItems:"center", gap:"12px",
+      padding:"14px 18px", borderRadius:"12px",
+      background: ok ? "#1a6b3a" : "#c0392b",
+      color:"white", fontSize:"14px", fontWeight:500,
+      boxShadow:"0 6px 24px rgba(0,0,0,0.18)",
+      maxWidth:"380px", minWidth:"240px",
+      animation:"toastIn 0.25s ease",
+    }}>
+      <span style={{fontSize:"20px",flexShrink:0}}>{ok ? "✅" : "❌"}</span>
+      <span style={{flex:1,lineHeight:"1.4"}}>{String(message).replace(/^[✅❌]\s*/,"")}</span>
+      <span onClick={onClose} style={{cursor:"pointer",opacity:0.75,fontSize:"20px",lineHeight:1,flexShrink:0}}>×</span>
+    </div>
+  );
+}
+
 // ── Unsaved changes banner ──────────────────────────────────────────────────
 function UnsavedBanner({ show }) {
   if (!show) return null;
@@ -905,7 +930,7 @@ function normalizeWeights(c) {
   return r;
 }
 
-function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyChange = () => {} }) {
+function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onReset, onDirtyChange = () => {} }) {
   const [cfg, setCfg]         = useState(normalizeWeights({ ...config }));
   const [saving, setSaving]   = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -961,9 +986,11 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
 
   const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0) + (cfg.maleAccessoriesPerPage||0) + (cfg.femaleAccessoriesPerPage||0);
   const pageTotalValid = pageTotal === 24;
+  const weightSum = (cfg.scoreWeightCategory||0) + (cfg.scoreWeightVariants||0) + (cfg.scoreWeightInventory||0);
+  const weightsValid = weightSum === 100;
 
   async function handleSave() {
-    if (!pageTotalValid) return;
+    if (!pageTotalValid || !weightsValid) return;
     setSaving(true);
     await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder });
     setSaving(false);
@@ -1234,6 +1261,12 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
                   </td>
                 </tr>
               ))}
+              <tr style={{background: weightsValid?"#f0faf0":"#fff0f0", borderTop:"2px solid #e1e3e5"}}>
+                <td style={{padding:"8px 12px",fontWeight:700,fontSize:"13px",color:weightsValid?"#1a6b3a":"#d72c0d"}}>Ukupno</td>
+                <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:weightsValid?"#1a6b3a":"#d72c0d"}}>
+                  {weightSum} {weightsValid ? "✓" : `(mora biti 100)`}
+                </td>
+              </tr>
             </tbody>
           </table>
 
@@ -1288,11 +1321,13 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
         </VerticalStack>
       </Card>
 
-      <UnsavedBanner show={isDirty} />
-      <HorizontalStack align="space-between">
-        {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>}
-        <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid}>Sačuvaj postavke</Button>
-      </HorizontalStack>
+      <div style={{position:"sticky",bottom:0,background:"white",borderTop:"1px solid #e1e3e5",padding:"14px 0 4px",zIndex:10,marginTop:"4px"}}>
+        <UnsavedBanner show={isDirty} />
+        <HorizontalStack align="space-between">
+          {onReset && <Button tone="critical" variant="plain" onClick={onReset}>Resetuj na shop default</Button>}
+          <Button variant="primary" onClick={handleSave} loading={saving} disabled={!pageTotalValid||!weightsValid}>Sačuvaj postavke</Button>
+        </HorizontalStack>
+      </div>
     </VerticalStack>
   );
 }
