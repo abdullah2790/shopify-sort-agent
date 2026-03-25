@@ -6,6 +6,7 @@ function normCat(c) { const n=normText(c); if(n==="polo majica"||n==="polo majic
 
 function sortProducts(products, config={}) {
   const cfg = {...DEFAULTS,...config};
+  cfg.fallbacks = { ...DEFAULTS.fallbacks, ...(cfg.fallbacks || {}) };
   const BANNED = new Set(cfg.bannedCategoriesTopN.map(normCat));
   const ACC = new Set(cfg.accessoryCategories.map(normCat));
   const SPR = cfg.sprinklerCategoryOrder.map(normCat);

@@ -63,8 +63,11 @@ function calculateScores(products, categoryScores = {}, rangOverride = null) {
  */
 function mergeConfig(shopConfig, collectionConfig) {
   const base = { ...DEFAULTS, ...(shopConfig || {}) };
+  base.fallbacks = { ...DEFAULTS.fallbacks, ...(base.fallbacks || {}) };
   if (!collectionConfig) return base;
-  return { ...base, ...collectionConfig };
+  const merged = { ...base, ...collectionConfig };
+  merged.fallbacks = { ...DEFAULTS.fallbacks, ...(merged.fallbacks || {}) };
+  return merged;
 }
 
 async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, trigger = "manual", rangOverride = null }) {
