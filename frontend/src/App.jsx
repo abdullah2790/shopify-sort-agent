@@ -74,6 +74,7 @@ function SortApp() {
   const [addingAll, setAddingAll] = useState(false);
   const [confirmAddAll, setConfirmAddAll] = useState(false);
   const [dirtyTabs, setDirtyTabs] = useState({});
+  const [confirmLeave, setConfirmLeave] = useState({ open: false, targetTab: null });
   function markTabDirty(tabIdx, dirty) { setDirtyTabs(d => ({...d, [tabIdx]: dirty})); }
 
   // Ref na trenutne scoreve kategorija — za auto-save
@@ -242,7 +243,7 @@ function SortApp() {
         {success && <Banner tone="success"  onDismiss={()=>setSuccess(null)}><p>{success}</p></Banner>}
 
         <Tabs tabs={tabs} selected={tab} onSelect={(newTab) => {
-          if (dirtyTabs[tab] && !window.confirm("Imate nesačuvane promjene. Da li sigurno želite da napustite ovaj tab?")) return;
+          if (dirtyTabs[tab]) { setConfirmLeave({ open: true, targetTab: newTab }); return; }
           setTab(newTab);
         }} />
 
@@ -425,6 +426,25 @@ function SortApp() {
         />
       )}
       <Modal
+        open={confirmLeave.open}
+        onClose={() => setConfirmLeave({ open:false, targetTab:null })}
+        title="Nesačuvane promjene"
+        primaryAction={{ content:"Napusti bez čuvanja", destructive:true, onAction:() => {
+          markTabDirty(tab, false);
+          setTab(confirmLeave.targetTab);
+          setConfirmLeave({ open:false, targetTab:null });
+        }}}
+        secondaryActions={[{ content:"Ostani i sačuvaj", onAction:() => setConfirmLeave({ open:false, targetTab:null }) }]}
+      >
+        <Modal.Section>
+          <VerticalStack gap="200">
+            <Text>Imate nesačuvane promjene u ovom tabu.</Text>
+            <Text tone="subdued">Ako napustite tab sada, sve promjene će biti izgubljene.</Text>
+          </VerticalStack>
+        </Modal.Section>
+      </Modal>
+
+      <Modal
         open={confirmAddAll}
         onClose={()=>setConfirmAddAll(false)}
         title="Dodaj sve kolekcije"
@@ -592,8 +612,13 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
   const [cfg, setCfg]       = useState({ ...schedule });
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const origRef = useRef(schedule);
 
-  useEffect(() => { setCfg({ ...schedule }); setIsDirty(false); onDirtyChange(false); }, [schedule]);
+  useEffect(() => { origRef.current = schedule; setCfg({ ...schedule }); setIsDirty(false); onDirtyChange(false); }, [schedule]);
+  useEffect(() => {
+    const dirty = JSON.stringify(cfg) !== JSON.stringify(origRef.current);
+    setIsDirty(dirty); onDirtyChange(dirty);
+  }, [JSON.stringify(cfg)]);
 
   const intervalOptions = [
     { label:"Svaki dan",       value:"1", icon:"📅" },
@@ -873,14 +898,28 @@ function ConfigTab({ config, categories = [], title, onSave, onReset, onDirtyCha
     return [...kept, ...added];
   }
   const [accOrder, setAccOrder] = useState(() => initAccOrder(config.accessoryCategoryOrder));
+  const origCfgRef = useRef(null);
 
   useEffect(() => {
-    setCfg(normalizeWeights({ ...config }));
-    setBannedList(config.bannedCategoriesTopN || []);
-    setFallbacks({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
-    setAccOrder(initAccOrder(config.accessoryCategoryOrder));
+    const nc = normalizeWeights({ ...config });
+    const nb = config.bannedCategoriesTopN || [];
+    const nf = { ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) };
+    const na = initAccOrder(config.accessoryCategoryOrder);
+    origCfgRef.current = { cfg: nc, bannedList: nb, fallbacks: nf, accOrder: na };
+    setCfg(nc); setBannedList(nb); setFallbacks(nf); setAccOrder(na);
     setIsDirty(false); onDirtyChange(false);
   }, [config, categories]);
+
+  useEffect(() => {
+    if (!origCfgRef.current) return;
+    const o = origCfgRef.current;
+    const dirty =
+      JSON.stringify(cfg)        !== JSON.stringify(o.cfg) ||
+      JSON.stringify(bannedList) !== JSON.stringify(o.bannedList) ||
+      JSON.stringify(fallbacks)  !== JSON.stringify(o.fallbacks) ||
+      JSON.stringify(accOrder)   !== JSON.stringify(o.accOrder);
+    setIsDirty(dirty); onDirtyChange(dirty);
+  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder)]);
 
   function addBanned(val) {
     const trimmed = val.trim();
@@ -1388,11 +1427,18 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
   const [saving, setSaving]   = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [reading, setReading] = useState(false);
+  const origRef = useRef({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
 
   useEffect(() => {
-    setCfg({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
+    const merged = { ...DEFAULT_WEATHER_CONFIG, ...weatherConfig };
+    origRef.current = merged;
+    setCfg(merged);
     setIsDirty(false); onDirtyChange(false);
   }, [weatherConfig]);
+  useEffect(() => {
+    const dirty = JSON.stringify(cfg) !== JSON.stringify(origRef.current);
+    setIsDirty(dirty); onDirtyChange(dirty);
+  }, [JSON.stringify(cfg)]);
 
   const hourOptions = Array.from({length:24}, (_,i) => ({
     label: `${String(i).padStart(2,"0")}:00`, value: String(i)
