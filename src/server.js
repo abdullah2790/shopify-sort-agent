@@ -33,7 +33,7 @@ app.use(express.static(frontendBuild));
 app.get("/auth/install", (req, res) => {
   const { shop } = req.query;
   if (!shop) return res.status(400).send("Nedostaje shop");
-  const { url } = buildInstallUrl(shop, process.env.SHOPIFY_API_KEY, `${process.env.SHOPIFY_APP_URL}/auth/callback`, "read_products,write_products,read_orders,read_collections,write_collections");
+  const { url } = buildInstallUrl(shop, process.env.SHOPIFY_API_KEY, `${process.env.SHOPIFY_APP_URL}/auth/callback`, "read_products,write_products,read_orders");
   res.redirect(url);
 });
 
