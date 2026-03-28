@@ -16,6 +16,7 @@ const DEFAULTS = require("../config/defaults");
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, frameguard: false }));
 app.use(cors());
 app.use("/api/", rateLimit({ windowMs: 60_000, max: 200 }));
