@@ -575,7 +575,6 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
 
   return (
     <VerticalStack gap="400">
-      <UnsavedBanner show={isDirty} />
     <Card>
       <VerticalStack gap="400">
         <HorizontalStack align="space-between">
@@ -636,11 +635,20 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
           </table>
         </div>
 
-        <HorizontalStack align="end">
-          <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj scoreve</Button>
-        </HorizontalStack>
       </VerticalStack>
     </Card>
+    <div style={{
+      position:"sticky", bottom:0, zIndex:10,
+      background:"white", borderRadius:"12px",
+      border:"1px solid #e1e3e5", boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+      padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px",
+    }}>
+      {isDirty
+        ? <span style={{fontSize:"13px",color:"#b98900",fontWeight:500,display:"flex",alignItems:"center",gap:"6px"}}>⚠ Imate nesačuvane promjene</span>
+        : <span style={{fontSize:"13px",color:"#6d7175"}}>Sve promjene su sačuvane</span>
+      }
+      <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty}>Sačuvaj scoreve</Button>
+    </div>
     </VerticalStack>
   );
 }
@@ -834,10 +842,18 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
         </VerticalStack>
       </Card>
 
-      <UnsavedBanner show={isDirty} />
-      <HorizontalStack align="end">
-        <Button variant="primary" onClick={handleSave} loading={saving}>Sačuvaj raspored</Button>
-      </HorizontalStack>
+      <div style={{
+        position:"sticky", bottom:0, zIndex:10,
+        background:"white", borderRadius:"12px",
+        border:"1px solid #e1e3e5", boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+        padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px",
+      }}>
+        {isDirty
+          ? <span style={{fontSize:"13px",color:"#b98900",fontWeight:500,display:"flex",alignItems:"center",gap:"6px"}}>⚠ Imate nesačuvane promjene</span>
+          : <span style={{fontSize:"13px",color:"#6d7175"}}>Sve promjene su sačuvane</span>
+        }
+        <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty}>Sačuvaj raspored</Button>
+      </div>
     </VerticalStack>
   );
 }
@@ -864,16 +880,6 @@ function AppToast({ message, type, onClose }) {
   );
 }
 
-// ── Unsaved changes banner ──────────────────────────────────────────────────
-function UnsavedBanner({ show }) {
-  if (!show) return null;
-  return (
-    <div style={{background:"#fff8e1",border:"1px solid #ffc107",borderRadius:"8px",padding:"10px 16px",display:"flex",alignItems:"center",gap:"8px",fontSize:"13px",fontWeight:500,color:"#7a4f00"}}>
-      <span style={{fontSize:"16px"}}>⚠</span>
-      Imate nesačuvane promjene — kliknite Sačuvaj da biste ih zadržali.
-    </div>
-  );
-}
 
 // ── Drag & Drop priority list ───────────────────────────────────────────────
 function AccPriorityList({ items, onChange }) {
@@ -1767,15 +1773,21 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
         </VerticalStack>
       </Card>
 
-      <UnsavedBanner show={isDirty} />
-      <HorizontalStack align="space-between">
-        <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim()}>
-          Čitaj prognozu sada
-        </Button>
-        <Button variant="primary" onClick={handleSave} loading={saving}>
-          Sačuvaj postavke
-        </Button>
-      </HorizontalStack>
+      <div style={{
+        position:"sticky", bottom:0, zIndex:10,
+        background:"white", borderRadius:"12px",
+        border:"1px solid #e1e3e5", boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+        padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px",
+      }}>
+        {isDirty
+          ? <span style={{fontSize:"13px",color:"#b98900",fontWeight:500,display:"flex",alignItems:"center",gap:"6px"}}>⚠ Imate nesačuvane promjene</span>
+          : <span style={{fontSize:"13px",color:"#6d7175"}}>Sve promjene su sačuvane</span>
+        }
+        <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+          <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim()}>Čitaj prognozu sada</Button>
+          <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty}>Sačuvaj postavke</Button>
+        </div>
+      </div>
     </VerticalStack>
   );
 }
