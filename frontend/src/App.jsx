@@ -107,13 +107,13 @@ function SortApp() {
     setLoading(true);
     try {
       const [c, w, l, cfg, cats, sch, wth] = await Promise.all([
-        fetch(`/api/collections?shop=${shop}`).then(r=>r.json()),
-        fetch(`/api/watched-collections?shop=${shop}`).then(r=>r.json()),
-        fetch(`/api/logs?shop=${shop}&limit=20`).then(r=>r.json()),
-        fetch(`/api/config?shop=${shop}`).then(r=>r.json()),
-        fetch(`/api/categories?shop=${shop}`).then(r=>r.json()),
-        fetch(`/api/schedule?shop=${shop}`).then(r=>r.json()),
-        fetch(`/api/weather-config?shop=${shop}`).then(r=>r.json()),
+        fetch(`/api/collections?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("collections"); return r.json(); }),
+        fetch(`/api/watched-collections?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("watched"); return r.json(); }),
+        fetch(`/api/logs?shop=${shop}&limit=20`).then(r=>{ if(!r.ok) throw new Error("logs"); return r.json(); }),
+        fetch(`/api/config?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("config"); return r.json(); }),
+        fetch(`/api/categories?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("categories"); return r.json(); }),
+        fetch(`/api/schedule?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("schedule"); return r.json(); }),
+        fetch(`/api/weather-config?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("weather"); return r.json(); }),
       ]);
       setCollections(c.collections||[]);
       setWatched(w.collections||[]);
@@ -182,7 +182,7 @@ function SortApp() {
     const col = collections.find(c=>c.id===selected); if(!col) return;
     try {
       await fetch("/api/watched-collections", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId:col.id, collectionTitle:col.title, active:true}) });
-      setAddModal(false); setSelected(""); setSearchValue(""); loadData();
+      setAddModal(false); setSelected(""); setSearchValue(""); await loadData();
     } catch { setError("Greška."); }
   }
 
@@ -1699,7 +1699,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
                 options={hourOptions}
                 value={String(cfg.readHour ?? 6)}
                 onChange={v => { setCfg(c => ({...c, readHour: parseInt(v)})); }}
-                helpText="Prognoza se automatski čita u ovom satu (i pred svako cron sortiranje)."
+                helpText="Prognoza se automatski čita u ovom satu. Ako je raspored aktivan, koristi se sat čitanja iz rasporeda."
               />
             </FormLayout.Group>
           </FormLayout>

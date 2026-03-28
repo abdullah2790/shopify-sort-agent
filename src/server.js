@@ -29,7 +29,9 @@ app.use(cors());
 app.use("/api/", rateLimit({ windowMs: 60_000, max: 200 }));
 app.use((req, res, next) => {
   if (req.path.startsWith("/webhooks/")) {
-    let data = ""; req.on("data", c => { data += c; }); req.on("end", () => { req.rawBody = data; next(); });
+    let data = ""; let size = 0;
+    req.on("data", c => { size += c.length; if (size > 1e6) { res.status(413).send("Too large"); req.destroy(); return; } data += c; });
+    req.on("end", () => { req.rawBody = data; next(); });
   } else { express.json()(req, res, next); }
 });
 
@@ -82,8 +84,12 @@ app.post("/webhooks/app-uninstalled", async (req, res) => {
 });
 app.post("/webhooks/orders-create", (req, res) => res.status(200).send("OK"));
 app.post("/webhooks/products-update", async (req, res) => {
+  const hmac = req.headers["x-shopify-hmac-sha256"], shop = req.headers["x-shopify-shop-domain"];
+  if (!hmac || !shop) return res.status(401).send("Unauthorized");
+  const { secret: s1 } = getCredentials(1);
+  const { secret: s2 } = getCredentials(2);
+  if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2)) return res.status(401).send("Unauthorized");
   res.status(200).send("OK");
-  const shop = req.headers["x-shopify-shop-domain"];
   const s = await getShop(shop).catch(()=>null);
   if (s) syncCategories(shop, s.access_token, s.id).catch(console.error);
 });
@@ -351,8 +357,15 @@ const weatherScheduleManager = {
     try {
       const col = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='shop_configs' AND column_name='weather_config'`);
       if (!col.rows.length) return;
-      const r = await db.query(`SELECT s.id, s.shop_domain, sc.weather_config FROM shops s JOIN shop_configs sc ON sc.shop_id=s.id WHERE s.active=TRUE AND sc.weather_config->>'enabled'='true'`);
-      for (const row of r.rows) this.update(row.shop_domain, row.id, row.weather_config);
+      const r = await db.query(`SELECT s.id, s.shop_domain, sc.weather_config, sc.schedule FROM shops s JOIN shop_configs sc ON sc.shop_id=s.id WHERE s.active=TRUE AND sc.weather_config->>'enabled'='true'`);
+      for (const row of r.rows) {
+        const wCfg = { ...row.weather_config };
+        // Ako postoji aktivan schedule sa weatherReadHour, koristi taj sat umjesto weather_config.readHour
+        if (row.schedule?.enabled && row.schedule?.weatherReadHour != null) {
+          wCfg.readHour = parseInt(row.schedule.weatherReadHour);
+        }
+        this.update(row.shop_domain, row.id, wCfg);
+      }
       console.log(`🌤 Weather schedule inicijalizovan za ${r.rows.length} shopova`);
     } catch (e) { console.error("Weather init greška:", e.message); }
   }

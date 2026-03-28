@@ -111,12 +111,15 @@ async function getCategories(shopId) {
  */
 async function saveSeasonScores(shopId, scores) {
   // scores = [{ handle, season_scores: { Cold, Mild, Warm, Hot }, is_sprinkler? }]
-  for (const { handle, season_scores, is_sprinkler } of scores) {
-    await db.query(
-      `UPDATE categories SET season_scores = $1, is_sprinkler = $2 WHERE shop_id = $3 AND handle = $4`,
-      [JSON.stringify(season_scores), is_sprinkler ?? false, shopId, handle]
-    );
-  }
+  if (!scores.length) return;
+  const values = scores.map((_, i) => `($${i*4+1}::jsonb, $${i*4+2}::boolean, $${i*4+3}::int, $${i*4+4}::text)`).join(",");
+  const params = scores.flatMap(({ handle, season_scores, is_sprinkler }) => [JSON.stringify(season_scores), is_sprinkler ?? false, shopId, handle]);
+  await db.query(
+    `UPDATE categories SET season_scores = v.season_scores, is_sprinkler = v.is_sprinkler
+     FROM (VALUES ${values}) AS v(season_scores, is_sprinkler, shop_id, handle)
+     WHERE categories.shop_id = v.shop_id AND categories.handle = v.handle`,
+    params
+  );
 }
 
 /**
