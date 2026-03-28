@@ -1,4 +1,4 @@
-const API = "2024-01";
+const API = "2025-10";
 async function gql(shop, token, query, vars = {}) {
   const res = await fetch(`https://${shop}/admin/api/${API}/graphql.json`, { method:"POST", headers:{"X-Shopify-Access-Token":token,"Content-Type":"application/json"}, body:JSON.stringify({query,variables:vars}) });
   if (!res.ok) throw new Error(`GraphQL HTTP ${res.status}`);
