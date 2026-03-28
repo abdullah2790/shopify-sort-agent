@@ -553,7 +553,9 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
     setSaving(true);
     try {
       const arr = Object.entries(scores).map(([handle, season_scores]) => ({ handle, season_scores, is_sprinkler: sprinklers[handle] || false }));
-      await fetch("/api/categories/scores", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, scores:arr}) });
+      const res = await fetch("/api/categories/scores", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, scores:arr}) });
+      if (!res.ok) throw new Error("Server greška");
+      origRef.current = { scores: { ...scores }, sprinklers: { ...sprinklers } };
       onSuccess("✅ Sezonski scorevi sačuvani!");
       setIsDirty(false); onDirtyChange(false);
     } catch { onError("Greška pri čuvanju."); }
