@@ -16,6 +16,13 @@ const DEFAULTS = require("../config/defaults");
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+function getCredentials(appIndex) {
+  if (appIndex === 2 && process.env.SHOPIFY_API_KEY_2) {
+    return { key: process.env.SHOPIFY_API_KEY_2, secret: process.env.SHOPIFY_API_SECRET_2 };
+  }
+  return { key: process.env.SHOPIFY_API_KEY, secret: process.env.SHOPIFY_API_SECRET };
+}
+
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, frameguard: false }));
 app.use(cors());
@@ -30,31 +37,47 @@ const frontendBuild = path.join(__dirname, "../frontend/build");
 app.use(express.static(frontendBuild));
 
 // ── OAuth ──────────────────────────────────────────────────────────────────
-app.get("/auth/install", (req, res) => {
-  const { shop } = req.query;
-  if (!shop) return res.status(400).send("Nedostaje shop");
-  const { url } = buildInstallUrl(shop, process.env.SHOPIFY_API_KEY, `${process.env.SHOPIFY_APP_URL}/auth/callback`, "read_products,write_products,read_orders");
-  res.redirect(url);
-});
+function makeInstallHandler(appIndex) {
+  return (req, res) => {
+    const { shop } = req.query;
+    if (!shop) return res.status(400).send("Nedostaje shop");
+    const { key } = getCredentials(appIndex);
+    const callbackUrl = appIndex === 2
+      ? `${process.env.SHOPIFY_APP_URL}/auth/callback2`
+      : `${process.env.SHOPIFY_APP_URL}/auth/callback`;
+    const { url } = buildInstallUrl(shop, key, callbackUrl, "read_products,write_products,read_orders");
+    res.redirect(url);
+  };
+}
 
-app.get("/auth/callback", async (req, res) => {
-  const { shop, code } = req.query;
-  if (!shop || !code) return res.status(400).send("Nevaljani parametri");
-  try {
-    const accessToken = await exchangeCodeForToken(shop, process.env.SHOPIFY_API_KEY, process.env.SHOPIFY_API_SECRET, code);
-    const result = await db.query(`INSERT INTO shops (shop_domain, access_token) VALUES ($1, $2) ON CONFLICT (shop_domain) DO UPDATE SET access_token=$2, active=TRUE RETURNING id`, [shop, accessToken]);
-    const shopId = result.rows[0].id;
-    await db.query(`INSERT INTO shop_configs (shop_id, config) VALUES ($1, $2) ON CONFLICT (shop_id) DO NOTHING`, [shopId, JSON.stringify(DEFAULTS)]);
-    await registerWebhooks(shop, accessToken, process.env.SHOPIFY_APP_URL);
-    syncCategories(shop, accessToken, shopId).catch(console.error);
-    res.redirect(`/dashboard?shop=${shop}`);
-  } catch (err) { res.status(500).send("Greška: " + err.message); }
-});
+function makeCallbackHandler(appIndex) {
+  return async (req, res) => {
+    const { shop, code } = req.query;
+    if (!shop || !code) return res.status(400).send("Nevaljani parametri");
+    try {
+      const { key, secret } = getCredentials(appIndex);
+      const accessToken = await exchangeCodeForToken(shop, key, secret, code);
+      const result = await db.query(`INSERT INTO shops (shop_domain, access_token) VALUES ($1, $2) ON CONFLICT (shop_domain) DO UPDATE SET access_token=$2, active=TRUE RETURNING id`, [shop, accessToken]);
+      const shopId = result.rows[0].id;
+      await db.query(`INSERT INTO shop_configs (shop_id, config) VALUES ($1, $2) ON CONFLICT (shop_id) DO NOTHING`, [shopId, JSON.stringify(DEFAULTS)]);
+      await registerWebhooks(shop, accessToken, process.env.SHOPIFY_APP_URL);
+      syncCategories(shop, accessToken, shopId).catch(console.error);
+      res.redirect(`/dashboard?shop=${shop}`);
+    } catch (err) { res.status(500).send("Greška: " + err.message); }
+  };
+}
+
+app.get("/auth/install", makeInstallHandler(1));
+app.get("/auth/install2", makeInstallHandler(2));
+app.get("/auth/callback", makeCallbackHandler(1));
+app.get("/auth/callback2", makeCallbackHandler(2));
 
 // ── Webhooks ───────────────────────────────────────────────────────────────
 app.post("/webhooks/app-uninstalled", async (req, res) => {
   const hmac = req.headers["x-shopify-hmac-sha256"], shop = req.headers["x-shopify-shop-domain"];
-  if (!verifyWebhook(req.rawBody, hmac, process.env.SHOPIFY_API_SECRET)) return res.status(401).send("Unauthorized");
+  const { secret: s1 } = getCredentials(1);
+  const { secret: s2 } = getCredentials(2);
+  if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2)) return res.status(401).send("Unauthorized");
   res.status(200).send("OK"); handleAppUninstalled(shop).catch(console.error);
 });
 app.post("/webhooks/orders-create", (req, res) => res.status(200).send("OK"));
