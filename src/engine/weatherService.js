@@ -11,7 +11,7 @@ const DEFAULT_RANGES = [
 const DEFAULT_WEATHER_CONFIG = {
   enabled:    false,
   city:       "Sarajevo",
-  readHour:   6,
+  readHour:   13,
   ranges:     DEFAULT_RANGES,
   lastForecast: null,
 };
@@ -21,7 +21,6 @@ const DEFAULT_WEATHER_CONFIG = {
 function httpsGet(url, redirectsLeft = 3) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { "User-Agent": "SmartSort/1.0" } }, (res) => {
-      // Prati redirect
       if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location && redirectsLeft > 0) {
         return httpsGet(res.headers.location, redirectsLeft - 1).then(resolve, reject);
       }
@@ -35,13 +34,35 @@ function httpsGet(url, redirectsLeft = 3) {
   });
 }
 
-// ── Fetch current weather from wttr.in (no API key needed) ─────────────────
-async function fetchWeather(city) {
+// ── Fetch forecast for a specific hour of today from wttr.in ───────────────
+// wttr.in hourly: time field "0"=00:00, "300"=03:00, "600"=06:00, "1200"=12:00, "1500"=15:00 itd.
+async function fetchWeatherForecast(city, targetHour) {
   const url = `https://wttr.in/${encodeURIComponent(city.trim())}?format=j1`;
   const raw  = await httpsGet(url);
   const data = JSON.parse(raw);
+
   const cond = data.current_condition?.[0];
   if (!cond) throw new Error("Nevaljan odgovor weather API-ja");
+
+  // Pokušaj naći hourly forecast za ciljani sat
+  const hourly = data.weather?.[0]?.hourly;
+  if (hourly && hourly.length && targetHour != null) {
+    let closest = hourly[0];
+    let minDiff = Infinity;
+    for (const h of hourly) {
+      const hHour = parseInt(h.time) / 100; // "1200" → 12
+      const diff  = Math.abs(hHour - targetHour);
+      if (diff < minDiff) { minDiff = diff; closest = h; }
+    }
+    return {
+      temp:        parseInt(closest.tempC),
+      description: closest.weatherDesc?.[0]?.value || cond.weatherDesc?.[0]?.value || "",
+      feelsLike:   parseInt(closest.FeelsLikeC ?? closest.tempC),
+      humidity:    parseInt(closest.humidity   ?? cond.humidity ?? 0),
+    };
+  }
+
+  // Fallback: trenutno stanje
   return {
     temp:        parseInt(cond.temp_C),
     description: cond.weatherDesc?.[0]?.value || "",
@@ -77,13 +98,15 @@ async function saveWeatherConfig(shopId, config) {
   );
 }
 
-// ── Read weather and persist to DB ─────────────────────────────────────────
-async function readAndStoreWeather(shopId) {
-  const cfg     = await getWeatherConfig(shopId);
-  const city    = cfg.city?.trim();
+// ── Read forecast for targetHour (or cfg.readHour) and persist to DB ───────
+// targetHour: sat za koji čitamo prognozu (npr. 13). Ako nije dat, koristi cfg.readHour.
+async function readAndStoreWeather(shopId, targetHour) {
+  const cfg  = await getWeatherConfig(shopId);
+  const city = cfg.city?.trim();
   if (!city) throw new Error("Grad nije konfigurisan u weather postavkama");
 
-  const weather = await fetchWeather(city);
+  const hour    = targetHour != null ? parseInt(targetHour) : parseInt(cfg.readHour ?? 13);
+  const weather = await fetchWeatherForecast(city, hour);
   const rang    = getRangForTemp(weather.temp, cfg.ranges);
 
   const lastForecast = {
@@ -92,27 +115,19 @@ async function readAndStoreWeather(shopId) {
     description: weather.description,
     feelsLike:   weather.feelsLike,
     humidity:    weather.humidity,
+    forecastHour: hour,
     readAt:      new Date().toISOString(),
     city,
   };
 
   await saveWeatherConfig(shopId, { ...cfg, lastForecast });
-  console.log(`🌤 [shopId=${shopId}] ${city}: ${weather.temp}°C → ${rang} (${weather.description})`);
+  console.log(`🌤 [shopId=${shopId}] ${city} prognoza za ${hour}:00 → ${weather.temp}°C → ${rang}`);
   return lastForecast;
 }
 
-// ── Returns current rang (Cold/Mild/Warm/Hot), or null if disabled / stale ─
-async function getWeatherRangOverride(shopId) {
-  const cfg = await getWeatherConfig(shopId);
-  if (!cfg.enabled || !cfg.lastForecast?.readAt) return null;
-  const hoursSince = (Date.now() - new Date(cfg.lastForecast.readAt).getTime()) / (1000 * 60 * 60);
-  if (hoursSince > 24) return null;
-  return cfg.lastForecast.rang || null;
-}
-
 module.exports = {
-  fetchWeather, getRangForTemp,
+  fetchWeatherForecast, getRangForTemp,
   getWeatherConfig, saveWeatherConfig,
-  readAndStoreWeather, getWeatherRangOverride,
+  readAndStoreWeather,
   DEFAULT_RANGES, DEFAULT_WEATHER_CONFIG,
 };

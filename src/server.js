@@ -10,7 +10,7 @@ const { verifyWebhook, registerWebhooks, handleAppUninstalled } = require("./web
 const { buildInstallUrl, exchangeCodeForToken, getCollections } = require("./api/shopifyClient");
 const { runSort, runSortAllCollections, runSortPreview } = require("./engine/sortService");
 const { syncCategories, getCategories, saveSeasonScores } = require("./engine/categoryService");
-const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather, getWeatherRangOverride } = require("./engine/weatherService");
+const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather } = require("./engine/weatherService");
 const DEFAULTS = require("../config/defaults");
 
 const app  = express();
@@ -300,7 +300,6 @@ app.put("/api/weather-config", async (req, res) => {
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     await saveWeatherConfig(s.id, weatherConfig);
-    weatherScheduleManager.update(shop, s.id, weatherConfig);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -329,47 +328,6 @@ app.get("/dashboard", (req, res) => {
 app.get("*", (req, res) => {
   res.sendFile(path.join(frontendBuild, "index.html"), err => { if (err) res.status(404).send("Not found"); });
 });
-
-// ── Weather Schedule Manager ────────────────────────────────────────────────
-const weatherTasks = {};
-
-const weatherScheduleManager = {
-  update(shopDomain, shopId, weatherCfg) {
-    if (weatherTasks[shopDomain]) { weatherTasks[shopDomain].stop(); delete weatherTasks[shopDomain]; }
-    if (!weatherCfg?.enabled || !weatherCfg?.city) return;
-
-    const hour    = parseInt(weatherCfg.readHour ?? 6);
-    const pattern = `0 ${hour} * * *`;
-
-    weatherTasks[shopDomain] = cron.schedule(pattern, async () => {
-      try {
-        console.log(`🌤 [${shopDomain}] Čitanje vremenske prognoze...`);
-        await readAndStoreWeather(shopId);
-      } catch (err) {
-        console.error(`❌ [${shopDomain}] Weather greška:`, err.message);
-      }
-    }, { timezone: "Europe/Sarajevo" });
-
-    console.log(`🌤 [${shopDomain}] Weather schedule: svaki dan u ${hour}:00`);
-  },
-
-  async init() {
-    try {
-      const col = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='shop_configs' AND column_name='weather_config'`);
-      if (!col.rows.length) return;
-      const r = await db.query(`SELECT s.id, s.shop_domain, sc.weather_config, sc.schedule FROM shops s JOIN shop_configs sc ON sc.shop_id=s.id WHERE s.active=TRUE AND sc.weather_config->>'enabled'='true'`);
-      for (const row of r.rows) {
-        const wCfg = { ...row.weather_config };
-        // Ako postoji aktivan schedule sa weatherReadHour, koristi taj sat umjesto weather_config.readHour
-        if (row.schedule?.enabled && row.schedule?.weatherReadHour != null) {
-          wCfg.readHour = parseInt(row.schedule.weatherReadHour);
-        }
-        this.update(row.shop_domain, row.id, wCfg);
-      }
-      console.log(`🌤 Weather schedule inicijalizovan za ${r.rows.length} shopova`);
-    } catch (e) { console.error("Weather init greška:", e.message); }
-  }
-};
 
 // ── Schedule Manager ───────────────────────────────────────────────────────
 // Drži aktivne cron taskove po shopu
@@ -401,11 +359,21 @@ const scheduleManager = {
           }
         }
 
-        // Dohvati rang override iz zadnje pohrane prognoze (čita se u weatherReadHour, ne ovdje)
-        const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
-        if (rangOverride) console.log(`🌡 [${shopDomain}] Rang override: ${rangOverride}`);
+        // Čitaj prognozu za konfigurisani sat (npr. 13:00) u trenutku pokretanja sorta
+        const weatherReadHour = parseInt(schedule.weatherReadHour ?? 13);
+        let rangOverride = null;
+        const wCfg = await getWeatherConfig(s.id).catch(() => null);
+        if (wCfg?.enabled) {
+          try {
+            const forecast = await readAndStoreWeather(s.id, weatherReadHour);
+            rangOverride = forecast.rang;
+            console.log(`🌡 [${shopDomain}] Prognoza za ${weatherReadHour}:00 → ${forecast.temp}°C → ${rangOverride}`);
+          } catch (e) {
+            console.error(`❌ [${shopDomain}] Weather greška (sort nastavlja bez prognoze):`, e.message);
+          }
+        }
 
-        // 3. Sortiraj sve kolekcije
+        // Sortiraj sve kolekcije
         console.log(`⏰ [${shopDomain}] Schedule sort pokrenut`);
         await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron", rangOverride });
       } catch (err) {
@@ -414,14 +382,7 @@ const scheduleManager = {
     }, { timezone: "Europe/Sarajevo" });
 
     const weatherReadHour = parseInt(schedule.weatherReadHour ?? 13);
-    console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:${String(minute).padStart(2,"0")} | prognoza čita: ${weatherReadHour}:00`);
-    // Ažuriraj weather cron na konfigurisani sat čitanja prognoze
-    getShop(shopDomain).then(s => {
-      if (!s) return;
-      getWeatherConfig(s.id).then(wCfg => {
-        if (wCfg) weatherScheduleManager.update(shopDomain, s.id, { ...wCfg, readHour: weatherReadHour });
-      }).catch(()=>{});
-    }).catch(()=>{});
+    console.log(`📅 [${shopDomain}] Schedule aktivan: svaki ${intervalDays} dan(a) u ${hour}:${String(minute).padStart(2,"0")} | čita prognozu za ${weatherReadHour}:00`);
   },
 
   async init() {
@@ -447,6 +408,5 @@ async function getShop(domain) {
 app.listen(PORT, "0.0.0.0", async () => {
   console.log(`🚀 Server pokrenut na portu ${PORT}`);
   await scheduleManager.init();
-  await weatherScheduleManager.init();
 });
 module.exports = app;

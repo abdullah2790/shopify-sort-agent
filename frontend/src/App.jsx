@@ -827,7 +827,7 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
                 }))}
                 value={String(cfg.weatherReadHour ?? 13)}
                 onChange={v => { setCfg(c => ({...c, weatherReadHour: parseInt(v)})); }}
-                helpText="Prognoza se automatski čita u ovom satu. Sort u noći koristi ovu vrijednost."
+                helpText="Kada sort krene (npr. u 02:00), pita wttr.in kakva je prognoza za ovaj sat tog dana. Preporuka: 13:00."
               />
             </FormLayout.Group>
           </FormLayout>
