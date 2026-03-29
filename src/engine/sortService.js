@@ -99,13 +99,14 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
   }
 }
 
-async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual", rangOverride = null }) {
+async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConfig = {}, trigger = "manual", rangOverride = null, collectionDelayMs = 300 }) {
   const res = await db.query(
     `SELECT collection_id, collection_config FROM watched_collections WHERE shop_id = $1 AND active = TRUE`,
     [shopId]
   );
   const results = [];
-  for (const row of res.rows) {
+  for (let i = 0; i < res.rows.length; i++) {
+    const row = res.rows[i];
     results.push(await runSort({
       shopId, shopDomain, accessToken,
       collectionId: row.collection_id,
@@ -114,7 +115,7 @@ async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConf
       trigger,
       rangOverride,
     }));
-    await new Promise(r => setTimeout(r, 300));
+    if (i < res.rows.length - 1) await new Promise(r => setTimeout(r, collectionDelayMs));
   }
   return results;
 }

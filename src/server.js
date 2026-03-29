@@ -314,9 +314,27 @@ app.post("/api/weather/read", async (req, res) => {
 });
 
 app.get("/api/logs", async (req, res) => {
-  const { shop, limit = 20 } = req.query;
-  try { const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" }); const r = await db.query(`SELECT * FROM sort_logs WHERE shop_id = $1 ORDER BY created_at DESC LIMIT $2`, [s.id, limit]); res.json({ logs: r.rows }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  const { shop, limit = 50 } = req.query;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const r = await db.query(`SELECT * FROM sort_logs WHERE shop_id = $1 ORDER BY created_at DESC LIMIT $2`, [s.id, limit]);
+    const count = await db.query(`SELECT COUNT(*) FROM sort_logs WHERE shop_id = $1`, [s.id]);
+    res.json({ logs: r.rows, total: parseInt(count.rows[0].count) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/api/logs/cleanup", async (req, res) => {
+  const { shop, olderThanDays } = req.body;
+  const days = parseInt(olderThanDays);
+  if (!days || days < 1) return res.status(400).json({ error: "Nevažeći broj dana" });
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const r = await db.query(
+      `DELETE FROM sort_logs WHERE shop_id = $1 AND created_at < NOW() - INTERVAL '1 day' * $2`,
+      [s.id, days]
+    );
+    res.json({ ok: true, deleted: r.rowCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/health", (req, res) => res.json({ status: "ok", time: new Date() }));
@@ -373,9 +391,10 @@ const scheduleManager = {
           }
         }
 
-        // Sortiraj sve kolekcije
-        console.log(`⏰ [${shopDomain}] Schedule sort pokrenut`);
-        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron", rangOverride });
+        // Sortiraj sve kolekcije (sa pauzom između)
+        const collectionDelayMs = parseInt(schedule.collectionDelaySeconds ?? 0) * 1000 || 300;
+        console.log(`⏰ [${shopDomain}] Schedule sort pokrenut (pauza između kolekcija: ${collectionDelayMs/1000}s)`);
+        await runSortAllCollections({ shopId: s.id, shopDomain, accessToken: s.access_token, shopConfig: s.config||DEFAULTS, trigger: "cron", rangOverride, collectionDelayMs });
       } catch (err) {
         console.error(`❌ [${shopDomain}] Schedule greška (cron ostaje aktivan):`, err.message);
       }

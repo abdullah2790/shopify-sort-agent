@@ -59,6 +59,7 @@ function SortApp() {
   const [collections, setCollections] = useState([]);
   const [watched, setWatched]       = useState([]);
   const [logs, setLogs]             = useState([]);
+  const [logsTotal, setLogsTotal]   = useState(0);
   const [shopConfig, setShopConfig] = useState(null);
   const [categories, setCategories] = useState([]);
   const [schedule, setSchedule]     = useState(null);
@@ -109,7 +110,7 @@ function SortApp() {
       const [c, w, l, cfg, cats, sch, wth] = await Promise.all([
         fetch(`/api/collections?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("collections"); return r.json(); }),
         fetch(`/api/watched-collections?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("watched"); return r.json(); }),
-        fetch(`/api/logs?shop=${shop}&limit=20`).then(r=>{ if(!r.ok) throw new Error("logs"); return r.json(); }),
+        fetch(`/api/logs?shop=${shop}&limit=50`).then(r=>{ if(!r.ok) throw new Error("logs"); return r.json(); }),
         fetch(`/api/config?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("config"); return r.json(); }),
         fetch(`/api/categories?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("categories"); return r.json(); }),
         fetch(`/api/schedule?shop=${shop}`).then(r=>{ if(!r.ok) throw new Error("schedule"); return r.json(); }),
@@ -117,7 +118,7 @@ function SortApp() {
       ]);
       setCollections(c.collections||[]);
       setWatched(w.collections||[]);
-      setLogs(l.logs||[]);
+      setLogs(l.logs||[]); setLogsTotal(l.total||0);
       setShopConfig(cfg.config||{});
       setCategories(cats.categories||[]);
       setSchedule(sch.schedule||{ enabled:false, intervalDays:1, hour:3, minute:0 });
@@ -386,24 +387,14 @@ function SortApp() {
 
         {/* ── Tab 5: Logovi ── */}
         {tab===5 && (
-          <Card>
-            <VerticalStack gap="400">
-              <Text as="h2" variant="headingMd">Logovi sortiranja</Text>
-              {logs.length===0 ? <Text tone="subdued">Nema logova.</Text> : (
-                <DataTable
-                  columnContentTypes={["text","text","numeric","text","text"]}
-                  headings={["Kolekcija","Trigger","Proizvoda","Status","Vrijeme"]}
-                  rows={logs.map(log=>[
-                    watched.find(w=>w.collection_id===log.collection_id)?.collection_title || log.collection_id || "Sve",
-                    log.trigger,
-                    log.products_sorted||0,
-                    <Badge tone={log.status==="success"?"success":"critical"}>{log.status==="success"?"OK":"Greška"}</Badge>,
-                    new Date(log.created_at).toLocaleString("bs-BA"),
-                  ])}
-                />
-              )}
-            </VerticalStack>
-          </Card>
+          <LogsTab
+            logs={logs}
+            logsTotal={logsTotal}
+            watched={watched}
+            shop={shop}
+            onRefresh={loadData}
+            onError={showError}
+          />
         )}
       </VerticalStack>
 
@@ -653,6 +644,80 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
   );
 }
 
+// ── Logs Tab ────────────────────────────────────────────────────────────────
+function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
+  const [cleanupDays, setCleanupDays] = useState("90");
+  const [cleaning, setCleaning] = useState(false);
+
+  async function handleCleanup() {
+    if (!window.confirm(`Obrisati logove starije od ${cleanupDays} dana?`)) return;
+    setCleaning(true);
+    try {
+      const res = await fetch("/api/logs/cleanup", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop, olderThanDays: parseInt(cleanupDays) }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      await onRefresh();
+    } catch (e) { onError(e.message || "Greška pri čišćenju."); }
+    finally { setCleaning(false); }
+  }
+
+  return (
+    <VerticalStack gap="400">
+      <Card>
+        <VerticalStack gap="400">
+          <HorizontalStack align="space-between" blockAlign="center">
+            <Text as="h2" variant="headingMd">Logovi sortiranja</Text>
+            <Text tone="subdued" variant="bodySm">Ukupno zapisa: {logsTotal}</Text>
+          </HorizontalStack>
+          {logs.length===0 ? <Text tone="subdued">Nema logova.</Text> : (
+            <DataTable
+              columnContentTypes={["text","text","numeric","text","text"]}
+              headings={["Kolekcija","Trigger","Proizvoda","Status","Vrijeme"]}
+              rows={logs.map(log=>[
+                watched.find(w=>w.collection_id===log.collection_id)?.collection_title || log.collection_id || "Sve",
+                log.trigger,
+                log.products_sorted||0,
+                <Badge tone={log.status==="success"?"success":"critical"}>{log.status==="success"?"OK":"Greška"}</Badge>,
+                new Date(log.created_at).toLocaleString("bs-BA"),
+              ])}
+            />
+          )}
+        </VerticalStack>
+      </Card>
+
+      <Card>
+        <VerticalStack gap="300">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Čišćenje logova</Text>
+            <Text tone="subdued" variant="bodySm">Logovi se akumuliraju tokom vremena. Obriši stare zapise kako bi oslobodio prostor u bazi.</Text>
+          </VerticalStack>
+          <HorizontalStack gap="300" blockAlign="end">
+            <div style={{width:"200px"}}>
+              <Select
+                label="Obriši logove starije od"
+                options={[
+                  { label:"7 dana",   value:"7" },
+                  { label:"30 dana",  value:"30" },
+                  { label:"60 dana",  value:"60" },
+                  { label:"90 dana",  value:"90" },
+                  { label:"180 dana", value:"180" },
+                ]}
+                value={cleanupDays}
+                onChange={setCleanupDays}
+              />
+            </div>
+            <Button tone="critical" onClick={handleCleanup} loading={cleaning}>Obriši</Button>
+          </HorizontalStack>
+        </VerticalStack>
+      </Card>
+    </VerticalStack>
+  );
+}
+
 // ── Schedule Tab ───────────────────────────────────────────────────────────
 function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {} }) {
   const [cfg, setCfg]       = useState({ ...schedule });
@@ -815,13 +880,13 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
         </VerticalStack>
       </Card>
 
-      {/* Sat čitanja prognoze */}
+      {/* Sat čitanja prognoze + pauza između kolekcija */}
       <Card>
         <VerticalStack gap="400">
           <VerticalStack gap="100">
             <Text as="h3" variant="headingSm">Prognoza za sortiranje</Text>
             <Text tone="subdued" variant="bodySm">
-              Sort ne čita prognozu u sat pokretanja (noć) — umjesto toga koristi prognozu sačuvanu u ovom satu tokom dana.
+              Sort ne čita prognozu u sat pokretanja (noć) — umjesto toga traži prognozu za konfigurisani sat istog dana.
               Preporučeno: 13:00 (podnevna temperatura bolje odražava šta kupci nose).
             </Text>
           </VerticalStack>
@@ -835,7 +900,21 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
                 }))}
                 value={String(cfg.weatherReadHour ?? 13)}
                 onChange={v => { setCfg(c => ({...c, weatherReadHour: parseInt(v)})); }}
-                helpText="Kada sort krene (npr. u 02:00), pita wttr.in kakva je prognoza za ovaj sat tog dana. Preporuka: 13:00."
+                helpText="Kada sort krene, pita wttr.in kakva je prognoza za ovaj sat tog dana. Preporuka: 13:00."
+              />
+              <Select
+                label="Pauza između kolekcija"
+                options={[
+                  { label:"Bez pauze (300ms)", value:"0" },
+                  { label:"30 sekundi",        value:"30" },
+                  { label:"1 minuta",          value:"60" },
+                  { label:"2 minute",          value:"120" },
+                  { label:"3 minute",          value:"180" },
+                  { label:"5 minuta",          value:"300" },
+                ]}
+                value={String(cfg.collectionDelaySeconds ?? 0)}
+                onChange={v => { setCfg(c => ({...c, collectionDelaySeconds: parseInt(v)})); }}
+                helpText="Pauza između sortiranja svake kolekcije. Korisno za shopove s mnogo kolekcija (50+)."
               />
             </FormLayout.Group>
           </FormLayout>
