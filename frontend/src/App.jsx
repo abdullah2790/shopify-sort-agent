@@ -393,7 +393,7 @@ function SortApp() {
             watched={watched}
             shop={shop}
             onRefresh={loadData}
-            onError={showError}
+            onError={setError}
           />
         )}
       </VerticalStack>
