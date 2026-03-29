@@ -10,7 +10,7 @@ const { verifyWebhook, registerWebhooks, handleAppUninstalled } = require("./web
 const { buildInstallUrl, exchangeCodeForToken, getCollections } = require("./api/shopifyClient");
 const { runSort, runSortAllCollections, runSortPreview } = require("./engine/sortService");
 const { syncCategories, getCategories, saveSeasonScores } = require("./engine/categoryService");
-const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather } = require("./engine/weatherService");
+const { getWeatherConfig, saveWeatherConfig, readAndStoreWeather, getWeatherRangOverride } = require("./engine/weatherService");
 const DEFAULTS = require("../config/defaults");
 
 const app  = express();

@@ -125,9 +125,18 @@ async function readAndStoreWeather(shopId, targetHour) {
   return lastForecast;
 }
 
+// ── Za ručni sort i preview: koristi zadnju sačuvanu prognozu (max 24h stara) ─
+async function getWeatherRangOverride(shopId) {
+  const cfg = await getWeatherConfig(shopId);
+  if (!cfg.enabled || !cfg.lastForecast?.readAt) return null;
+  const hoursSince = (Date.now() - new Date(cfg.lastForecast.readAt).getTime()) / (1000 * 60 * 60);
+  if (hoursSince > 24) return null;
+  return cfg.lastForecast.rang || null;
+}
+
 module.exports = {
   fetchWeatherForecast, getRangForTemp,
   getWeatherConfig, saveWeatherConfig,
-  readAndStoreWeather,
+  readAndStoreWeather, getWeatherRangOverride,
   DEFAULT_RANGES, DEFAULT_WEATHER_CONFIG,
 };
