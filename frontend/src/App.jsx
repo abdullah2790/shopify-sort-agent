@@ -648,9 +648,10 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
 function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
   const [cleanupDays, setCleanupDays] = useState("90");
   const [cleaning, setCleaning] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  async function handleCleanup() {
-    if (!window.confirm(`Obrisati logove starije od ${cleanupDays} dana?`)) return;
+  async function doCleanup() {
+    setConfirmOpen(false);
     setCleaning(true);
     try {
       const res = await fetch("/api/logs/cleanup", {
@@ -664,6 +665,8 @@ function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
     } catch (e) { onError(e.message || "Greška pri čišćenju."); }
     finally { setCleaning(false); }
   }
+
+  const cleanupLabel = { "7":"7 dana", "30":"30 dana", "60":"60 dana", "90":"90 dana", "180":"180 dana" }[cleanupDays] || cleanupDays;
 
   return (
     <VerticalStack gap="400">
@@ -710,10 +713,22 @@ function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
                 onChange={setCleanupDays}
               />
             </div>
-            <Button tone="critical" onClick={handleCleanup} loading={cleaning}>Obriši</Button>
+            <Button tone="critical" onClick={() => setConfirmOpen(true)} loading={cleaning}>Obriši</Button>
           </HorizontalStack>
         </VerticalStack>
       </Card>
+
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Obriši logove"
+        primaryAction={{ content:"Da, obriši", destructive:true, loading:cleaning, onAction: doCleanup }}
+        secondaryActions={[{ content:"Odustani", onAction:() => setConfirmOpen(false) }]}
+      >
+        <Modal.Section>
+          <Text>Bit će obrisani svi logovi stariji od <strong>{cleanupLabel}</strong>. Ova akcija se ne može poništiti. Jesi li siguran?</Text>
+        </Modal.Section>
+      </Modal>
     </VerticalStack>
   );
 }
