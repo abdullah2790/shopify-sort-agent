@@ -72,7 +72,8 @@ function mergeConfig(shopConfig, collectionConfig) {
   base.fallbacks = { ...DEFAULTS.fallbacks, ...(base.fallbacks || {}) };
   if (!collectionConfig) return base;
   const merged = { ...base, ...collectionConfig };
-  merged.fallbacks = { ...DEFAULTS.fallbacks, ...(merged.fallbacks || {}) };
+  // Ispravno: uzimamo shop-level fallbacks kao bazu, pa pregazimo samo ono što kolekcija eksplicitno definiše
+  merged.fallbacks = { ...base.fallbacks, ...(collectionConfig?.fallbacks || {}) };
   return merged;
 }
 

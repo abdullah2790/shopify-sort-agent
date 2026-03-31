@@ -139,7 +139,12 @@ app.get("/api/collection-config", async (req, res) => {
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     const r = await db.query(`SELECT collection_config FROM watched_collections WHERE shop_id = $1 AND collection_id = $2`, [s.id, collectionId]);
-    res.json({ shopConfig: s.config||DEFAULTS, collectionConfig: r.rows[0]?.collection_config||null, merged: { ...(s.config||DEFAULTS), ...(r.rows[0]?.collection_config||{}) } });
+    const shopCfg = s.config || DEFAULTS;
+    const colCfg  = r.rows[0]?.collection_config || null;
+    const merged  = { ...shopCfg, ...(colCfg || {}) };
+    // Fallbacks se moraju dubinski mergati: shop-level baza + kolekcijski override po ključu
+    merged.fallbacks = { ...(shopCfg.fallbacks || DEFAULTS.fallbacks), ...(colCfg?.fallbacks || {}) };
+    res.json({ shopConfig: shopCfg, collectionConfig: colCfg, merged });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

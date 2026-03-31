@@ -1594,11 +1594,12 @@ function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
 
 // ── Per-Collection Config Modal ────────────────────────────────────────────
 function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, onSuccess, onError }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [hasOwn, setHasOwn]   = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [data, setData]             = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [hasOwn, setHasOwn]         = useState(false);
+  const [isDirty, setIsDirty]       = useState(false);
+  const [activeConfig, setActiveConfig] = useState(null); // null = koristi merged; postavljeno = soft-reset na shop default
   const saveRef = useRef(null);
 
   useEffect(() => {
@@ -1618,28 +1619,46 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
     finally { setSaving(false); }
   }
 
-  async function handleReset() {
-    await fetch("/api/collection-config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId, config:null}) });
-    onSuccess(`✅ "${collectionTitle}" resetovano na shop default.`);
-    onClose();
+  async function handleDeleteOwn() {
+    try {
+      await fetch("/api/collection-config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId, config:null}) });
+      onSuccess(`✅ "${collectionTitle}" resetovano na shop default.`);
+      onClose();
+    } catch(e) { onError(e?.message || "Greška"); }
   }
+
+  function handleLoadShopDefaults() {
+    // Učitaj opće (shop) postavke u formu — soft reset, ne čuva odmah
+    setActiveConfig({ ...(data?.shopConfig || {}) });
+  }
+
+  const configToShow = activeConfig ?? data?.merged ?? data?.shopConfig ?? {};
+  const loadedFromShopDefaults = activeConfig !== null;
 
   return (
     <Modal open={true} onClose={onClose} title={`Postavke: ${collectionTitle}`} large
-      primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty, onAction:() => saveRef.current?.() }}
-      secondaryActions={[{ content:"Zatvori", onAction:onClose }]}
+      primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty && activeConfig === null, onAction:() => saveRef.current?.() }}
+      secondaryActions={[
+        !loading && { content:"Učitaj opće postavke", onAction: handleLoadShopDefaults },
+        !loading && hasOwn && !loadedFromShopDefaults && { content:"Obriši vlastite postavke", destructive:true, onAction: handleDeleteOwn },
+        { content:"Zatvori", onAction:onClose },
+      ].filter(Boolean)}
     >
       <Modal.Section>
         {loading ? (
           <div style={{textAlign:"center",padding:"40px"}}><Spinner /></div>
         ) : (
           <VerticalStack gap="400">
-            {!hasOwn && <Banner tone="info"><p>Koristi <strong>shop default postavke</strong>. Promjenama ćeš kreirati vlastite.</p></Banner>}
-            {hasOwn  && <Banner tone="success"><p>Ova kolekcija ima <strong>vlastite postavke</strong>.</p></Banner>}
+            {loadedFromShopDefaults && (
+              <Banner tone="warning">
+                <p>Forma je učitana sa <strong>općih postavki</strong>. Ovo su samo vrijednosti u formi — pritisnite <strong>Sačuvaj postavke</strong> da ih pohranite za ovu kolekciju.</p>
+              </Banner>
+            )}
+            {!loadedFromShopDefaults && !hasOwn && <Banner tone="info"><p>Koristi <strong>shop default postavke</strong>. Promjenama ćeš kreirati vlastite.</p></Banner>}
+            {!loadedFromShopDefaults &&  hasOwn && <Banner tone="success"><p>Ova kolekcija ima <strong>vlastite postavke</strong>.</p></Banner>}
             <ConfigTab
-              config={data?.merged||data?.shopConfig||{}}
+              config={configToShow}
               onSave={handleSave}
-              onReset={hasOwn?handleReset:undefined}
               hideSaveButton={true}
               saveRef={saveRef}
               onDirtyChange={setIsDirty}
