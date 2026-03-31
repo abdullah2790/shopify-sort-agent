@@ -74,50 +74,47 @@ function sortProducts(products, config={}) {
     if(it.type===BB)return commit(it.isAccessory?P.accBaby:P.babies,it);
     commit(P.other,it);
   }
-  // Samo odrasli W/M poolovi — unisex je podijeljen, kids/baby nikad za odrasle acc slotove
-  // Unisex je u SAMO jednoj listi da ne bude dvostruko dostupan
-  const ACC_POOLS_W=[P.sprAccW,P.accW,P.sprAccU,P.accU];
-  const ACC_POOLS_M=[P.sprAccM,P.accM]; // unisex ide prema W strani
+  // W i M imaju odvojene poolove I odvojene pointere — svaki gender rotira nezavisno
+  const ACC_POOLS_W=[P.sprAccW,P.accW,P.sprAccU,P.accU]; // unisex ide prema W
+  const ACC_POOLS_M=[P.sprAccM,P.accM];
 
-  let accCatPtr=0;  // gdje smo u rotaciji kategorija
-  let accGenFlip=false; // false=sljedeći je W, true=sljedeći je M
-  let lastPickedGenderW=true; // za decrement kvote nakon picka
+  let accCatPtrW=0; // rotacija kategorija za ženski slot
+  let accCatPtrM=0; // rotacija kategorija za muški slot
+  let accGenFlip=false; // alternira W/M kad oba imaju stock
+  let lastPickedGenderW=true;
+
+  function pickFromPools(pools, ptr){
+    const pc=out.at(-1)?.normCategory??"";
+    const len=Math.max(1,ACC_ORDER.length);
+    for(let i=0;i<ACC_ORDER.length;i++){
+      const want=ACC_ORDER[(ptr+i)%len];
+      if(want===pc)continue;
+      for(const pool of pools){
+        const f=pool.popWhere(it=>it.normCategory===want);
+        if(f)return{item:f, newPtr:(ptr+i+1)%len};
+      }
+    }
+    // Fallback: bilo koja kategorija iz ovih poolova
+    for(const pool of pools){const f=pool.popWhere(it=>it.normCategory!==pc);if(f)return{item:f,newPtr:(ptr+1)%len};}
+    for(const pool of pools){const f=pool.shift();if(f)return{item:f,newPtr:(ptr+1)%len};}
+    return null;
+  }
 
   function pickNextAcc(nAW,nAM){
     if(nAW<=0&&nAM<=0)return null;
-    const pc=out.at(-1)?.normCategory??"";
-
-    // Odredi gender za ovaj slot
     let useW;
-    if(nAW>0&&nAM>0){ useW=!accGenFlip; accGenFlip=!accGenFlip; }
-    else if(nAW>0){ useW=true; }
-    else{ useW=false; }
+    if(nAW>0&&nAM>0){useW=!accGenFlip;accGenFlip=!accGenFlip;}
+    else if(nAW>0){useW=true;}
+    else{useW=false;}
     lastPickedGenderW=useW;
 
-    const primary=useW?ACC_POOLS_W:ACC_POOLS_M;
-    const secondary=useW?ACC_POOLS_M:ACC_POOLS_W;
-
-    // Pokušaj naći sljedeću kategoriju po redoslijedu — obje strane za istu kategoriju
-    for(let i=0;i<ACC_ORDER.length;i++){
-      const want=ACC_ORDER[(accCatPtr+i)%ACC_ORDER.length];
-      if(want===pc)continue; // izbjegni isti kao prethodni
-      // Prvo primary gender
-      for(const pool of primary){
-        const f=pool.popWhere(it=>it.normCategory===want);
-        if(f){accCatPtr=(accCatPtr+i+1)%Math.max(1,ACC_ORDER.length);return f;}
-      }
-      // Pa secondary (isti slijed kategorije, drugi gender)
-      for(const pool of secondary){
-        const f=pool.popWhere(it=>it.normCategory===want);
-        if(f){accCatPtr=(accCatPtr+i+1)%Math.max(1,ACC_ORDER.length);return f;}
-      }
+    if(useW){
+      const r=pickFromPools(ACC_POOLS_W,accCatPtrW);
+      if(r){accCatPtrW=r.newPtr;return r.item;}
+    } else {
+      const r=pickFromPools(ACC_POOLS_M,accCatPtrM);
+      if(r){accCatPtrM=r.newPtr;return r.item;}
     }
-
-    // Nema ništa iz definiranog redoslijeda — uzmi bilo šta iz primary, pa secondary
-    accCatPtr=(accCatPtr+1)%Math.max(1,ACC_ORDER.length);
-    for(const pool of primary){const f=pool.popWhere(it=>it.normCategory!==pc);if(f)return f;}
-    for(const pool of secondary){const f=pool.popWhere(it=>it.normCategory!==pc);if(f)return f;}
-    for(const pool of [...primary,...secondary]){const f=pool.shift();if(f)return f;}
     return null;
   }
   function adultSlot(nW,nM){
