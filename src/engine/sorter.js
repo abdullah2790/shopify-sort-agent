@@ -129,8 +129,10 @@ function sortProducts(products, config={}) {
   function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
 
   function buildPage(){
-    let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=cfg.maleAccessoriesPerPage??0,nAM=cfg.femaleAccessoriesPerPage??0;
-    const pat=shuffle([...Array(16).fill("A"),...Array(8).fill("O")]);
+    let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=cfg.femaleAccessoriesPerPage??0,nAM=cfg.maleAccessoriesPerPage??0;
+    const nAdults=nW+nM;
+    const nOther=nG+nB+nBB+nAW+nAM;
+    const pat=shuffle([...Array(nAdults).fill("A"),...Array(nOther).fill("O")]);
 
     // Accessories-only mode: kada accessories kvota pokriva cijelu stranicu
     if(nAW+nAM>=24){
@@ -145,7 +147,13 @@ function sortProducts(products, config={}) {
       return;
     }
 
-    const op=shuffle(["ACC","BABY","GIRL","BOY","ACC","BABY","GIRL","BOY"]);
+    // Dinamički op — tačno onoliko slotova koliko je konfigurirano
+    const op=shuffle([
+      ...Array(nAW+nAM).fill("ACC"),
+      ...Array(nBB).fill("BABY"),
+      ...Array(nG).fill("GIRL"),
+      ...Array(nB).fill("BOY"),
+    ]);
     let oPtr=0;const ps=out.length;
     for(let i=0;i<pat.length;i++){
       const isFirst=out.length===ps;
