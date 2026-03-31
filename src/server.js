@@ -239,9 +239,10 @@ app.post("/api/sort", async (req, res) => {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     const colRow = await db.query(`SELECT collection_config FROM watched_collections WHERE shop_id=$1 AND collection_id=$2`, [s.id, collectionId]);
     const rangOverride = await getWeatherRangOverride(s.id).catch(() => null);
-    res.status(202).json({ message: "Sort pokrenut" });
-    await runSort({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, trigger: "manual", rangOverride });
-  } catch (e) { console.error("Sort greška:", e.message); }
+    const result = await runSort({ shopId: s.id, shopDomain: shop, accessToken: s.access_token, collectionId, shopConfig: s.config||DEFAULTS, collectionConfig: colRow.rows[0]?.collection_config||null, trigger: "manual", rangOverride });
+    if (result.status === "error") return res.status(500).json({ error: result.error || "Greška pri sortiranju" });
+    res.json({ ok: true, productsSorted: result.productsSorted });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/api/sort-all", async (req, res) => {

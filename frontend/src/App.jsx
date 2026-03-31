@@ -151,10 +151,11 @@ function SortApp() {
     setSorting(collectionId); setError(null); setSuccess(null);
     try {
       const res = await fetch("/api/sort", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId}) });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || `HTTP ${res.status}`); }
-      setSuccess(`✅ Sortiranje "${title}" pokrenuto!`);
-      setTimeout(loadData, 3000);
-    } catch (e) { setError(e.message || "Greška."); } finally { setSorting(null); }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      setSuccess(`✅ "${title}" sortirano (${d.productsSorted} proizvoda).`);
+      await loadData();
+    } catch (e) { setError(`❌ Sort greška — ${e.message}`); } finally { setSorting(null); }
   }
 
   async function runSortAll() {
@@ -1600,7 +1601,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, categories
   const [saving, setSaving]         = useState(false);
   const [hasOwn, setHasOwn]         = useState(false);
   const [isDirty, setIsDirty]       = useState(false);
-  const [activeConfig, setActiveConfig] = useState(null); // null = koristi merged; postavljeno = soft-reset na shop default
+  const [confirmReset, setConfirmReset] = useState(false);
   const saveRef = useRef(null);
 
   useEffect(() => {
@@ -1620,55 +1621,58 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, categories
     finally { setSaving(false); }
   }
 
-  async function handleDeleteOwn() {
+  async function handleResetToDefaults() {
     try {
       await fetch("/api/collection-config", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId, config:null}) });
-      onSuccess(`✅ "${collectionTitle}" resetovano na shop default.`);
+      onSuccess(`✅ "${collectionTitle}" vraćeno na opće postavke.`);
       onClose();
     } catch(e) { onError(e?.message || "Greška"); }
   }
 
-  function handleLoadShopDefaults() {
-    // Učitaj opće (shop) postavke u formu — soft reset, ne čuva odmah
-    setActiveConfig({ ...(data?.shopConfig || {}) });
-  }
-
-  const configToShow = activeConfig ?? data?.merged ?? data?.shopConfig ?? {};
-  const loadedFromShopDefaults = activeConfig !== null;
+  const configToShow = data?.merged ?? data?.shopConfig ?? {};
 
   return (
-    <Modal open={true} onClose={onClose} title={`Postavke: ${collectionTitle}`} large
-      primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty && activeConfig === null, onAction:() => saveRef.current?.() }}
-      secondaryActions={[
-        !loading && { content:"Učitaj opće postavke", onAction: handleLoadShopDefaults },
-        !loading && hasOwn && !loadedFromShopDefaults && { content:"Obriši vlastite postavke", destructive:true, onAction: handleDeleteOwn },
-        { content:"Zatvori", onAction:onClose },
-      ].filter(Boolean)}
-    >
-      <Modal.Section>
-        {loading ? (
-          <div style={{textAlign:"center",padding:"40px"}}><Spinner /></div>
-        ) : (
-          <VerticalStack gap="400">
-            {loadedFromShopDefaults && (
-              <Banner tone="warning">
-                <p>Forma je učitana sa <strong>općih postavki</strong>. Ovo su samo vrijednosti u formi — pritisnite <strong>Sačuvaj postavke</strong> da ih pohranite za ovu kolekciju.</p>
-              </Banner>
-            )}
-            {!loadedFromShopDefaults && !hasOwn && <Banner tone="info"><p>Koristi <strong>shop default postavke</strong>. Promjenama ćeš kreirati vlastite.</p></Banner>}
-            {!loadedFromShopDefaults &&  hasOwn && <Banner tone="success"><p>Ova kolekcija ima <strong>vlastite postavke</strong>.</p></Banner>}
-            <ConfigTab
-              config={configToShow}
-              categories={categories}
-              onSave={handleSave}
-              hideSaveButton={true}
-              saveRef={saveRef}
-              onDirtyChange={setIsDirty}
-            />
-          </VerticalStack>
-        )}
-      </Modal.Section>
-    </Modal>
+    <>
+      <Modal open={true} onClose={onClose} title={`Postavke: ${collectionTitle}`} large
+        primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty, onAction:() => saveRef.current?.() }}
+        secondaryActions={[
+          !loading && hasOwn && { content:"Vrati na opće postavke", destructive:true, onAction:() => setConfirmReset(true) },
+          { content:"Zatvori", onAction:onClose },
+        ].filter(Boolean)}
+      >
+        <Modal.Section>
+          {loading ? (
+            <div style={{textAlign:"center",padding:"40px"}}><Spinner /></div>
+          ) : (
+            <VerticalStack gap="400">
+              {!hasOwn && <Banner tone="info"><p>Koristi <strong>shop default postavke</strong>. Promjenama ćeš kreirati vlastite.</p></Banner>}
+              {hasOwn  && <Banner tone="success"><p>Ova kolekcija ima <strong>vlastite postavke</strong>.</p></Banner>}
+              <ConfigTab
+                config={configToShow}
+                categories={categories}
+                onSave={handleSave}
+                hideSaveButton={true}
+                saveRef={saveRef}
+                onDirtyChange={setIsDirty}
+              />
+            </VerticalStack>
+          )}
+        </Modal.Section>
+      </Modal>
+
+      <Modal
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        title="Vrati na opće postavke"
+        primaryAction={{ content:"Da, vrati na opće", destructive:true, onAction:handleResetToDefaults }}
+        secondaryActions={[{ content:"Odustani", onAction:() => setConfirmReset(false) }]}
+      >
+        <Modal.Section>
+          <p>Da li ste sigurni da želite obrisati vlastite postavke za <strong>{collectionTitle}</strong>?</p>
+          <p>Kolekcija će koristiti opće postavke shopa.</p>
+        </Modal.Section>
+      </Modal>
+    </>
   );
 }
 
