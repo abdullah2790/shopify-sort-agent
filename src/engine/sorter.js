@@ -9,7 +9,7 @@ function sortProducts(products, config={}) {
   cfg.fallbacks = { ...DEFAULTS.fallbacks, ...(cfg.fallbacks || {}) };
   const BANNED = new Set(cfg.bannedCategoriesTopN.map(normCat));
   const ACC = new Set(cfg.accessoryCategories.map(normCat));
-  const SPR = cfg.sprinklerCategoryOrder.map(normCat);
+  const SPR = ACC_ORDER;
   const W=cfg.womenType,M=cfg.menType,U=cfg.unisexType,G=cfg.girlsType,B=cfg.boysType,BB=cfg.babyType;
 
   const items = products.map((p,idx)=>{
@@ -36,7 +36,7 @@ function sortProducts(products, config={}) {
   let relax=1.0;
   const out=[];
   const flatMode=(cfg.maleAccessoriesPerPage??0)+(cfg.femaleAccessoriesPerPage??0)>=24;
-  const ACC_ORDER=((cfg.accessoryCategoryOrder?.length?cfg.accessoryCategoryOrder:cfg.accessoryCategories)||[]).map(normCat);
+  const ACC_ORDER=((cfg.accessoryCategoryOrder?.length?cfg.accessoryCategoryOrder:cfg.sprinklerCategoryOrder?.length?cfg.sprinklerCategoryOrder:cfg.accessoryCategories)||[]).map(normCat);
 
   function banned(it){return out.length<cfg.banTopN&&BANNED.has(it.normCategory);}
   function sc(it){

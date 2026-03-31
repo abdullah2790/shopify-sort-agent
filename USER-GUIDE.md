@@ -170,15 +170,13 @@ Otvorite ih klikom na **Postavke** pored naziva kolekcije. Forma je identična O
 | **Obriši vlastite postavke** | Briše kolekcijski override, kolekcija se vraća na Opće postavke. Pojavljuje se samo ako kolekcija već ima vlastite postavke. |
 | **Sačuvaj postavke** | Čuva promjene i primjenjuje ih za ovu kolekciju. |
 
-![Footer modala sa dugmadima i statusni banner (plavi / zeleni / žuti)](docs/15-modal-footer.png)
-
 ---
 
 ## 5. Raspored
 
 Automatsko sortiranje bez ručnog pokretanja.
 
-![Tab Raspored — toggle za omogućavanje, polje za interval i sat pokretanja](docs/16-raspored.png)
+![Tab Raspored — toggle za omogućavanje, polje za interval i sat pokretanja](docs/raspored.png)
 
 | Polje | Opis |
 |-------|------|
@@ -192,19 +190,17 @@ Automatsko sortiranje bez ručnog pokretanja.
 
 Aplikacija čita vremensku prognozu i prilagođava sortiranje aktuelnoj temperaturi.
 
-![Tab Prognoza — polja za grad, sat očitavanja i temperaturne rangove](docs/17-prognoza.png)
+![Tab Prognoza — polja za grad, sat očitavanja i temperaturne rangove](docs/prognoza.png)
 
 | Polje | Opis |
 |-------|------|
 | **Grad** | Grad za koji se čita prognoza (npr. Sarajevo) |
-| **Sat očitavanja** | Kada se svaki dan automatski čita prognoza (preporučeno 06:00) |
-| **Očitaj sada** | Ručno čita trenutnu prognozu bez čekanja na zakazani sat |
+| **Sat očitavanja** | Kada se svaki dan automatski čita prognoza |
+| **Čitaj prognozu sada** | Ručno čita trenutnu prognozu bez čekanja na zakazani sat |
 
 ### Temperaturni rangovi
 
 Tabela u kojoj definirate granice temperature za svaki rang. Rang koji odgovara izmjerenoj temperaturi direktno određuje koji stupac scoreva iz taba **Kategorije** se koristi pri sortiranju.
-
-![Tabela temperaturnih rangova — minimum i maksimum u °C za Cold, Mild, Warm i Hot](docs/prognoza-rangovi.png)
 
 | Rang | Default raspon | Opis |
 |------|---------------|------|
@@ -214,8 +210,6 @@ Tabela u kojoj definirate granice temperature za svaki rang. Rang koji odgovara 
 | 🔥 Hot | 29°C do 45°C | Vrući ljetni dani |
 
 Vrijednosti možete prilagoditi prema klimatskim specifičnostima Vašeg tržišta.
-
-![Kartica zadnje očitane prognoze — temperatura, rang s bojom, datum i vrijeme](docs/18-prognoza-kartica.png)
 
 > **Napomena:** Ako prognoza nije dostupna, aplikacija automatski koristi **kalendarski fallback**:
 > - December – Februar → **Cold ❄️**
@@ -229,15 +223,13 @@ Vrijednosti možete prilagoditi prema klimatskim specifičnostima Vašeg tržiš
 
 Pregled historije svih sortiranja.
 
-![Tab Logovi — tabela sa historijom sortiranja, statusima i trajanjem](docs/19-logovi.png)
+![Tab Logovi — tabela sa historijom sortiranja, statusima i trajanjem](docs/logovi.png)
 
 Za svako sortiranje vidite:
 - **Kolekcija** — koja kolekcija je sortirana
-- **Trigger** — `manual` (ručno) ili `scheduled` (automatski)
+- **Trigger** — `manual` (ručno) ili `cron` (automatski)
 - **Broj proizvoda** — koliko je proizvoda sortirano
-- **Trajanje** — koliko je milisekundi trajalo sortiranje
-- **Status** — `success` (uspješno) ili `error` (greška)
-- **Greška** — poruka greške ako je sortiranje neuspješno
+- **Status** — `OK` (uspješno) ili `Greška` (error)
 
 ---
 
