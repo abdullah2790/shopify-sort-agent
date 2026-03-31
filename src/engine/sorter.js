@@ -86,16 +86,24 @@ function sortProducts(products, config={}) {
   function pickFromPools(pools, ptr){
     const pc=out.at(-1)?.normCategory??"";
     const len=Math.max(1,ACC_ORDER.length);
+    // Prolaz 1: traži po redoslijedu, izbjegavaj isti kao prethodni
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       if(want===pc)continue;
       for(const pool of pools){
         const f=pool.popWhere(it=>it.normCategory===want);
-        if(f)return{item:f, newPtr:(ptr+i+1)%len};
+        if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
-    // Fallback: bilo koja kategorija iz ovih poolova
-    for(const pool of pools){const f=pool.popWhere(it=>it.normCategory!==pc);if(f)return{item:f,newPtr:(ptr+1)%len};}
+    // Prolaz 2: traži po redoslijedu, ignoriši pc ograničenje (acc slot se ne smije izgubiti)
+    for(let i=0;i<ACC_ORDER.length;i++){
+      const want=ACC_ORDER[(ptr+i)%len];
+      for(const pool of pools){
+        const f=pool.popWhere(it=>it.normCategory===want);
+        if(f)return{item:f,newPtr:(ptr+i+1)%len};
+      }
+    }
+    // Zadnji resort: ma šta iz poolova
     for(const pool of pools){const f=pool.shift();if(f)return{item:f,newPtr:(ptr+1)%len};}
     return null;
   }
@@ -111,9 +119,15 @@ function sortProducts(products, config={}) {
     if(useW){
       const r=pickFromPools(ACC_POOLS_W,accCatPtrW);
       if(r){accCatPtrW=r.newPtr;return r.item;}
+      // Ako W pool prazan, pokušaj M (i zabiliježi da je M uzet)
+      const rm=pickFromPools(ACC_POOLS_M,accCatPtrM);
+      if(rm){accCatPtrM=rm.newPtr;lastPickedGenderW=false;return rm.item;}
     } else {
       const r=pickFromPools(ACC_POOLS_M,accCatPtrM);
       if(r){accCatPtrM=r.newPtr;return r.item;}
+      // Ako M pool prazan, pokušaj W
+      const rw=pickFromPools(ACC_POOLS_W,accCatPtrW);
+      if(rw){accCatPtrW=rw.newPtr;lastPickedGenderW=true;return rw.item;}
     }
     return null;
   }
@@ -163,7 +177,6 @@ function sortProducts(products, config={}) {
       if(w==="BABY"&&nBB>0){const it=best(P.babies)??fromFallback("babies");if(it){nBB--;cbt(it);continue;}}
       if(w==="GIRL"&&nG>0){const it=best(P.girls)??fromFallback("girls");if(it){nG--;cbt(it);continue;}}
       if(w==="BOY"&&nB>0){const it=best(P.boys)??fromFallback("boys");if(it){nB--;cbt(it);continue;}}
-      const a=pickNextAcc(nAW,nAM);if(a){if(lastPickedGenderW)nAW--;else nAM--;cbt(a);continue;}
       const k=kids(P.babies,P.girls,P.boys)??kids(P.girls,P.boys,P.babies)??kids(P.boys,P.girls,P.babies)??best(P.other);if(k){cbt(k);continue;}
       const{it}=adultSlot(nW,nM);if(!it)return;cbt(it);
     }
