@@ -16,6 +16,12 @@ const DEFAULTS = require("../config/defaults");
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+function mergeWithDefaults(config) {
+  const merged = { ...DEFAULTS, ...(config || {}) };
+  merged.fallbacks = { ...DEFAULTS.fallbacks, ...(config?.fallbacks || {}) };
+  return merged;
+}
+
 function getCredentials(appIndex) {
   if (appIndex === 2 && process.env.SHOPIFY_API_KEY_2) {
     return { key: process.env.SHOPIFY_API_KEY_2, secret: process.env.SHOPIFY_API_SECRET_2 };
@@ -139,11 +145,10 @@ app.get("/api/collection-config", async (req, res) => {
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
     const r = await db.query(`SELECT collection_config FROM watched_collections WHERE shop_id = $1 AND collection_id = $2`, [s.id, collectionId]);
-    const shopCfg = s.config || DEFAULTS;
+    const shopCfg = mergeWithDefaults(s.config);
     const colCfg  = r.rows[0]?.collection_config || null;
     const merged  = { ...shopCfg, ...(colCfg || {}) };
-    // Fallbacks se moraju dubinski mergati: shop-level baza + kolekcijski override po ključu
-    merged.fallbacks = { ...(shopCfg.fallbacks || DEFAULTS.fallbacks), ...(colCfg?.fallbacks || {}) };
+    merged.fallbacks = { ...shopCfg.fallbacks, ...(colCfg?.fallbacks || {}) };
     res.json({ shopConfig: shopCfg, collectionConfig: colCfg, merged });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -160,15 +165,18 @@ app.put("/api/collection-config", async (req, res) => {
 // ── Shop config ────────────────────────────────────────────────────────────
 app.get("/api/config", async (req, res) => {
   const { shop } = req.query;
-  try { const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" }); res.json({ config: s.config||DEFAULTS }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    const cfg = mergeWithDefaults(s.config);
+    res.json({ config: cfg });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put("/api/config", async (req, res) => {
   const { shop, config } = req.body;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
-    const merged = { ...DEFAULTS, ...config };
+    const merged = mergeWithDefaults(config);
     await db.query(`UPDATE shop_configs SET config = $1, updated_at = NOW() WHERE shop_id = $2`, [JSON.stringify(merged), s.id]);
     res.json({ ok: true, config: merged });
   } catch (e) { res.status(500).json({ error: e.message }); }
