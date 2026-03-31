@@ -436,6 +436,7 @@ function SortApp() {
           shop={shop}
           collectionId={configModal}
           collectionTitle={watched.find(w=>w.collection_id===configModal)?.collection_title||""}
+          categories={categories}
           onClose={()=>{ setConfigModal(null); loadData(); }}
           onSuccess={setSuccess}
           onError={setError}
@@ -1593,7 +1594,7 @@ function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
 }
 
 // ── Per-Collection Config Modal ────────────────────────────────────────────
-function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, onSuccess, onError }) {
+function CollectionConfigModal({ shop, collectionId, collectionTitle, categories, onClose, onSuccess, onError }) {
   const [data, setData]             = useState(null);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
@@ -1658,6 +1659,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, onClose, o
             {!loadedFromShopDefaults &&  hasOwn && <Banner tone="success"><p>Ova kolekcija ima <strong>vlastite postavke</strong>.</p></Banner>}
             <ConfigTab
               config={configToShow}
+              categories={categories}
               onSave={handleSave}
               hideSaveButton={true}
               saveRef={saveRef}

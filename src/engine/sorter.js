@@ -91,7 +91,7 @@ function sortProducts(products, config={}) {
   }
   function spr(pool,prev){
     if(!pool.length)return null;const pc=prev?.normCategory??"";
-    for(let i=0;i<SPR.length;i++){const want=SPR[sprPtr%SPR.length];sprPtr++;const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f)return f;}
+    for(let i=0;i<SPR.length;i++){const want=SPR[(sprPtr+i)%SPR.length];const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f){sprPtr=(sprPtr+i+1)%Math.max(1,SPR.length);return f;}}
     return pool.popWhere(s=>s.normCategory!==pc)??pool.shift();
   }
   function acc(target,prefSpr){
