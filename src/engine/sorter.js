@@ -74,45 +74,35 @@ function sortProducts(products, config={}) {
     if(it.type===BB)return commit(it.isAccessory?P.accBaby:P.babies,it);
     commit(P.other,it);
   }
-  let sprPtr=0;
   let accPtr=0;
-  function pickByOrder(pools){
-    if(!ACC_ORDER.length)return null;
-    const prev=out.at(-1)?.normCategory??"";
+  const ALL_ACC_POOLS=[P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids,P.sprAccBaby,P.accW,P.accM,P.accU,P.accKids,P.accBaby];
+
+  // Jedan pointer, sve acc pools zajedno — garantuje striktni redoslijed po ACC_ORDER
+  function pickNextAcc(){
+    const pc=out.at(-1)?.normCategory??"";
+    // Pokušaj po definiranom redoslijedu
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(accPtr+i)%ACC_ORDER.length];
-      for(const pool of pools){
-        const f=pool.popWhere(it=>it.normCategory===want&&it.normCategory!==prev);
-        if(f){accPtr=(accPtr+i+1)%ACC_ORDER.length;return f;}
+      for(const pool of ALL_ACC_POOLS){
+        const f=pool.popWhere(it=>it.normCategory===want&&it.normCategory!==pc);
+        if(f){accPtr=(accPtr+i+1)%Math.max(1,ACC_ORDER.length);return f;}
       }
     }
-    accPtr=(accPtr+1)%Math.max(1,ACC_ORDER.length);
+    // Fallback: bilo koji aksesoar koji nije isti kao prethodni
+    for(const pool of ALL_ACC_POOLS){
+      const f=pool.popWhere(it=>it.normCategory!==pc);
+      if(f)return f;
+    }
+    // Zadnji resort: ma šta
+    for(const pool of ALL_ACC_POOLS){const f=pool.shift();if(f)return f;}
     return null;
   }
-  function spr(pool,prev){
-    if(!pool.length)return null;const pc=prev?.normCategory??"";
-    for(let i=0;i<ACC_ORDER.length;i++){const want=ACC_ORDER[(sprPtr+i)%ACC_ORDER.length];const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f){sprPtr=(sprPtr+i+1)%Math.max(1,ACC_ORDER.length);return f;}}
-    return pool.popWhere(s=>s.normCategory!==pc)??pool.shift();
-  }
-  function acc(target,prefSpr){
-    const prev=out.at(-1)??null;
-    function ts(sps,nps){
-      if(prefSpr)for(const sp of sps){const s2=spr(sp,prev);if(s2)return s2;}
-      const byOrder=pickByOrder(nps);if(byOrder)return byOrder;
-      for(const np of nps){const n=best(np);if(n)return n;}
-      if(!prefSpr)for(const sp of sps){const s2=spr(sp,prev);if(s2)return s2;}
-      return null;
-    }
-    if(target==="W")return ts([P.sprAccW,P.sprAccU,P.sprAccM,P.sprAccKids,P.sprAccBaby],[P.accW,P.accU,P.accM,P.accKids,P.accBaby]);
-    if(target==="M")return ts([P.sprAccM,P.sprAccU,P.sprAccW,P.sprAccKids,P.sprAccBaby],[P.accM,P.accU,P.accW,P.accKids,P.accBaby]);
-    return ts([P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids],[P.accW,P.accM,P.accU,P.accKids])??ts([P.sprAccBaby],[P.accBaby]);
-  }
+  function acc(){return pickNextAcc();}
   function adultSlot(nW,nM){
     const prev=out.at(-1)??null;
-    function sa(tgt){return spr(tgt==="M"?P.sprAccM:P.sprAccW,prev)??best(tgt==="M"?P.accM:P.accW);}
     let t=cfg.firstGender==="W"?(nW>0?"W":"M"):cfg.firstGender==="M"?(nM>0?"M":"W"):nW>nM?"W":nM>nW?"M":(prev?.type===W?"M":"W");
     const isM=t==="M";
-    const it=best(isM?P.menAdults:P.womenAdults)??fromFallback(isM?"men":"women")??sa(isM?"M":"W");
+    const it=best(isM?P.menAdults:P.womenAdults)??fromFallback(isM?"men":"women")??pickNextAcc();
     return{it:it??null,filledTarget:t};
   }
   function fromFallback(key){const chain=cfg.fallbacks?.[key]??[];for(const k of chain){const pool=PMAP[k];if(pool){const it=best(pool);if(it)return it;}}return null;}
@@ -142,11 +132,11 @@ function sortProducts(products, config={}) {
       const isFirst=out.length===ps;
       if(pat[i]==="A"||isFirst){const{it,filledTarget}=adultSlot(nW,nM);if(!it)return;if(filledTarget==="W")nW=Math.max(0,nW-1);else nM=Math.max(0,nM-1);cbt(it);continue;}
       const w=op[oPtr++%op.length];
-      if(w==="ACC"&&(nAW>0||nAM>0)){const t=nAW>0?"W":"M";const it=acc(t,true)??fromFallback(t==="W"?"accW":"accM");if(it){if(t==="W")nAW--;else nAM--;cbt(it);continue;}}
+      if(w==="ACC"&&(nAW>0||nAM>0)){const it=acc()??fromFallback("accW")??fromFallback("accM");if(it){if((nAW>0))nAW--;else nAM--;cbt(it);continue;}}
       if(w==="BABY"&&nBB>0){const it=best(P.babies)??fromFallback("babies");if(it){nBB--;cbt(it);continue;}}
       if(w==="GIRL"&&nG>0){const it=best(P.girls)??fromFallback("girls");if(it){nG--;cbt(it);continue;}}
       if(w==="BOY"&&nB>0){const it=best(P.boys)??fromFallback("boys");if(it){nB--;cbt(it);continue;}}
-      const a=acc(null,false);if(a){cbt(a);continue;}
+      const a=acc();if(a){cbt(a);continue;}
       const k=kids(P.babies,P.girls,P.boys)??kids(P.girls,P.boys,P.babies)??kids(P.boys,P.girls,P.babies)??best(P.other);if(k){cbt(k);continue;}
       const{it}=adultSlot(nW,nM);if(!it)return;cbt(it);
     }
