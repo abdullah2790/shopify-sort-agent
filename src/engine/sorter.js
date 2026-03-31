@@ -9,7 +9,7 @@ function sortProducts(products, config={}) {
   cfg.fallbacks = { ...DEFAULTS.fallbacks, ...(cfg.fallbacks || {}) };
   const BANNED = new Set(cfg.bannedCategoriesTopN.map(normCat));
   const ACC = new Set(cfg.accessoryCategories.map(normCat));
-  const SPR = ACC_ORDER;
+
   const W=cfg.womenType,M=cfg.menType,U=cfg.unisexType,G=cfg.girlsType,B=cfg.boysType,BB=cfg.babyType;
 
   const items = products.map((p,idx)=>{
@@ -91,7 +91,7 @@ function sortProducts(products, config={}) {
   }
   function spr(pool,prev){
     if(!pool.length)return null;const pc=prev?.normCategory??"";
-    for(let i=0;i<SPR.length;i++){const want=SPR[(sprPtr+i)%SPR.length];const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f){sprPtr=(sprPtr+i+1)%Math.max(1,SPR.length);return f;}}
+    for(let i=0;i<ACC_ORDER.length;i++){const want=ACC_ORDER[(sprPtr+i)%ACC_ORDER.length];const f=pool.popWhere(s=>s.normCategory===want&&s.normCategory!==pc);if(f){sprPtr=(sprPtr+i+1)%Math.max(1,ACC_ORDER.length);return f;}}
     return pool.popWhere(s=>s.normCategory!==pc)??pool.shift();
   }
   function acc(target,prefSpr){
