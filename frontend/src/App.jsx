@@ -1165,7 +1165,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
               <TextField label="Žen. aksesoar" type="number" min="0" value={num("femaleAccessoriesPerPage")} onChange={v=>setPageNum("femaleAccessoriesPerPage",v)} />
               <TextField label="Muš. aksesoar" type="number" min="0" value={num("maleAccessoriesPerPage")} onChange={v=>setPageNum("maleAccessoriesPerPage",v)} />
               <Select label="Ko ide prvi"
-                options={[{label:"Auto",value:"auto"},{label:"Žene",value:"Žene"},{label:"Muškarci",value:"Muškarci"}]}
+                options={[{label:"Auto",value:"auto"},{label:"Žene",value:"W"},{label:"Muškarci",value:"M"}]}
                 value={cfg.firstGender||"auto"} onChange={v=>setStr("firstGender",v)}
               />
             </FormLayout.Group>
@@ -1906,7 +1906,8 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
           : <span style={{fontSize:"13px",color:"#6d7175"}}>Sve promjene su sačuvane</span>
         }
         <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-          <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim()}>Čitaj prognozu sada</Button>
+          <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim() || isDirty}>Čitaj prognozu sada</Button>
+          {isDirty && <Text tone="subdued" variant="bodySm">Sačuvajte postavke prije čitanja prognoze.</Text>}
           <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty}>Sačuvaj postavke</Button>
         </div>
       </div>
