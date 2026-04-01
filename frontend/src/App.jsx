@@ -368,7 +368,7 @@ function SortApp() {
           <ScheduleTab
             schedule={schedule}
             shop={shop}
-            lastForecast={weatherConfig?.lastForecast || null}
+
             onSaved={(s) => { setSchedule(s); setSuccess("✅ Raspored sačuvan!"); }}
             onError={setError}
             onDirtyChange={(dirty) => markTabDirty(3, dirty)}
@@ -737,7 +737,7 @@ function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
 }
 
 // ── Schedule Tab ───────────────────────────────────────────────────────────
-function ScheduleTab({ schedule, shop, lastForecast, onSaved, onError, onDirtyChange = () => {} }) {
+function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {} }) {
   const [cfg, setCfg]       = useState({ ...schedule });
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -775,44 +775,8 @@ function ScheduleTab({ schedule, shop, lastForecast, onSaved, onError, onDirtyCh
 
   const intervalLabel = intervalOptions.find(o => o.value === String(cfg.intervalDays||1))?.label || "";
 
-  const forecastMeta = lastForecast ? (RANG_INFO[lastForecast.rang] || {}) : null;
-
   return (
     <VerticalStack gap="400">
-
-      {/* Zadnja prognoza korištena pri sortu */}
-      {lastForecast && forecastMeta && (
-        <Card>
-          <VerticalStack gap="200">
-            <HorizontalStack align="space-between" blockAlign="center">
-              <Text as="h3" variant="headingSm">Zadnja očitana prognoza</Text>
-              <Text tone="subdued" variant="bodySm">{new Date(lastForecast.readAt).toLocaleString("bs-BA")}</Text>
-            </HorizontalStack>
-            <div style={{
-              display:"flex", gap:"16px", alignItems:"center", flexWrap:"wrap",
-              padding:"12px 16px", borderRadius:"8px",
-              background: forecastMeta.bg, border:`1px solid ${forecastMeta.border}`,
-            }}>
-              <div style={{textAlign:"center", minWidth:"60px"}}>
-                <div style={{fontSize:"32px", fontWeight:700, lineHeight:1}}>{lastForecast.temp}°C</div>
-                <div style={{fontSize:"11px", color:"#6d7175", marginTop:"3px"}}>{lastForecast.resolvedCity || lastForecast.city}</div>
-              </div>
-              <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                <div style={{fontSize:"14px", fontWeight:500}}>{lastForecast.description}</div>
-                <span style={{
-                  display:"inline-flex", alignItems:"center", gap:"4px",
-                  padding:"2px 8px", borderRadius:"10px", width:"fit-content",
-                  background:"white", border:`1px solid ${forecastMeta.border}`,
-                  fontSize:"12px", fontWeight:600,
-                }}>
-                  {forecastMeta.emoji} {forecastMeta.label}
-                </span>
-              </div>
-            </div>
-            <Text tone="subdued" variant="bodySm">Ova temperatura je korištena pri posljednjem automatskom sortiranju.</Text>
-          </VerticalStack>
-        </Card>
-      )}
 
       {/* Status kartica */}
       <Card>
@@ -1772,9 +1736,57 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
   }
 
   const ranges = cfg.ranges || DEFAULT_WEATHER_RANGES;
+  const forecast = cfg.lastForecast;
+  const rangMeta = forecast ? (RANG_INFO[forecast.rang] || {}) : null;
 
   return (
     <VerticalStack gap="500">
+
+      {/* Zadnja prognoza */}
+      {forecast && rangMeta ? (
+        <Card>
+          <VerticalStack gap="300">
+            <HorizontalStack align="space-between" blockAlign="center">
+              <Text as="h3" variant="headingSm">Zadnja očitana prognoza</Text>
+              <Text tone="subdued" variant="bodySm">{new Date(forecast.readAt).toLocaleString("bs-BA")}</Text>
+            </HorizontalStack>
+            <div style={{
+              display:"flex", gap:"20px", flexWrap:"wrap", alignItems:"center",
+              padding:"16px 20px", borderRadius:"10px",
+              background: rangMeta.bg, border:`1px solid ${rangMeta.border}`,
+            }}>
+              <div style={{textAlign:"center", minWidth:"80px"}}>
+                <div style={{fontSize:"42px", fontWeight:700, lineHeight:1}}>{forecast.temp}°C</div>
+                <div style={{fontSize:"12px", color:"#6d7175", marginTop:"4px"}}>{forecast.resolvedCity || forecast.city}</div>
+                {forecast.resolvedCity && forecast.resolvedCity.toLowerCase() !== forecast.city?.toLowerCase() && (
+                  <div style={{fontSize:"11px", color:"#bf0711", marginTop:"2px"}}>uneseno: "{forecast.city}"</div>
+                )}
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:"6px"}}>
+                <div style={{fontSize:"15px", fontWeight:500}}>{forecast.description}</div>
+                <div style={{display:"flex", alignItems:"center", gap:"8px", flexWrap:"wrap"}}>
+                  <span style={{
+                    display:"inline-flex", alignItems:"center", gap:"4px",
+                    padding:"3px 10px", borderRadius:"12px",
+                    background:"white", border:`1px solid ${rangMeta.border}`,
+                    fontSize:"13px", fontWeight:600,
+                  }}>
+                    {rangMeta.emoji} {rangMeta.label}
+                  </span>
+                  <Text variant="bodySm" tone="subdued">
+                    → koristi <strong>{rangMeta.label}</strong> scoreve iz Kategorija
+                  </Text>
+                </div>
+                <Text variant="bodySm" tone="subdued">
+                  Osjeća se kao {forecast.feelsLike}°C · Vlažnost {forecast.humidity}%
+                </Text>
+              </div>
+            </div>
+          </VerticalStack>
+        </Card>
+      ) : (
+        <Banner tone="warning"><p>Prognoza još nije očitana. Automatski će se očitati u konfigurisanom satu.</p></Banner>
+      )}
 
       {/* Postavke */}
       <Card>
