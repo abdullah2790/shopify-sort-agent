@@ -64,9 +64,8 @@ async function fetchCategoriesFromShopify(shopDomain, accessToken) {
         pageInfo { hasNextPage endCursor }
         edges {
           node {
-            metafield(namespace: "custom", key: "kategorija") {
-              value
-            }
+            kategorija: metafield(namespace: "custom", key: "kategorija") { value }
+            kategorija1: metafield(namespace: "custom", key: "kategorija1") { value }
           }
         }
       }
@@ -83,8 +82,8 @@ async function fetchCategoriesFromShopify(shopDomain, accessToken) {
     if (!page) break;
 
     for (const edge of page.edges) {
-      const val = edge.node.metafield?.value;
-      if (val && val.trim()) categories.add(val.trim());
+      const val = (edge.node.kategorija?.value || edge.node.kategorija1?.value || "").trim();
+      if (val) categories.add(val);
     }
 
     hasNext = page.pageInfo.hasNextPage;
