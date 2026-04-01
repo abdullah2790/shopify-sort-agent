@@ -154,7 +154,17 @@ function sortProducts(products, config={}) {
     let nW=cfg.womenAdultsPerPage,nM=cfg.menAdultsPerPage,nG=cfg.girlsPerPage,nB=cfg.boysPerPage,nBB=cfg.babiesPerPage,nAW=cfg.femaleAccessoriesPerPage??0,nAM=cfg.maleAccessoriesPerPage??0;
     const nAdults=nW+nM;
     const nOther=nG+nB+nBB+nAW+nAM;
-    const pat=shuffle([...Array(nAdults).fill("A"),...Array(nOther).fill("O")]);
+    // Pat: max 1 uzastopni O slot — O slotovi nikad nisu jedan do drugog
+    const pat=(()=>{
+      const p=[];let rA=nAdults,rO=nOther,consec=0;
+      while(rA+rO>0){
+        const forceA=consec>=1||rO===0;
+        const forceO=rA===0;
+        const pickO=forceO||(!forceA&&Math.random()<rO/(rA+rO));
+        if(pickO){p.push("O");rO--;consec++;}else{p.push("A");rA--;consec=0;}
+      }
+      return p;
+    })();
 
     // Accessories-only mode: kada accessories kvota pokriva cijelu stranicu
     if(nAW+nAM>=24){
@@ -169,13 +179,22 @@ function sortProducts(products, config={}) {
       return;
     }
 
-    // Dinamički op — tačno onoliko slotova koliko je konfigurirano
-    const op=shuffle([
-      ...Array(nAW+nAM).fill("ACC"),
-      ...Array(nBB).fill("BABY"),
-      ...Array(nG).fill("GIRL"),
-      ...Array(nB).fill("BOY"),
-    ]);
+    // Op: round-robin po tipovima — GIRL/BOY/BABY/ACC se naizmjenično izmjenjuju
+    const op=(()=>{
+      const buckets=shuffle([
+        ...Array(nG>0?1:0).fill("GIRL"),
+        ...Array(nB>0?1:0).fill("BOY"),
+        ...Array(nBB>0?1:0).fill("BABY"),
+        ...Array(nAW+nAM>0?1:0).fill("ACC"),
+      ]);
+      const rem={GIRL:nG,BOY:nB,BABY:nBB,ACC:nAW+nAM};
+      const result=[];let bi=0;
+      while(Object.values(rem).some(v=>v>0)){
+        const type=buckets[bi%buckets.length];bi++;
+        if(rem[type]>0){result.push(type);rem[type]--;}
+      }
+      return result;
+    })();
     let oPtr=0;const ps=out.length;
     for(let i=0;i<pat.length;i++){
       const isFirst=out.length===ps;

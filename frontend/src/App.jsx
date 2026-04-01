@@ -1072,7 +1072,7 @@ function normalizeWeights(c) {
   return r;
 }
 
-function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onReset, onDirtyChange = () => {}, hideSaveButton = false, saveRef = null }) {
+function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onReset, onDirtyChange = () => {}, onValidChange = () => {}, hideSaveButton = false, saveRef = null }) {
   const [cfg, setCfg]         = useState(normalizeWeights({ ...config }));
   const [saving, setSaving]   = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -1130,6 +1130,11 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   const pageTotalValid = pageTotal === 24;
   const weightSum = (cfg.scoreWeightCategory||0) + (cfg.scoreWeightVariants||0) + (cfg.scoreWeightInventory||0);
   const weightsValid = weightSum === 100;
+  const prevValidRef = useRef(true);
+  useEffect(() => {
+    const valid = pageTotalValid && weightsValid;
+    if (valid !== prevValidRef.current) { prevValidRef.current = valid; onValidChange(valid); }
+  }, [pageTotalValid, weightsValid]);
 
   async function handleSave() {
     if (!pageTotalValid || !weightsValid) return;
@@ -1602,6 +1607,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, categories
   const [hasOwn, setHasOwn]         = useState(false);
   const [isDirty, setIsDirty]       = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [isValid, setIsValid] = useState(true);
   const saveRef = useRef(null);
 
   useEffect(() => {
@@ -1634,7 +1640,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, categories
   return (
     <>
       <Modal open={true} onClose={onClose} title={`Postavke: ${collectionTitle}`} large
-        primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty, onAction:() => saveRef.current?.() }}
+        primaryAction={{ content:"Sačuvaj postavke", loading:saving, disabled:!isDirty||!isValid, onAction:() => saveRef.current?.() }}
         secondaryActions={[
           !loading && hasOwn && { content:"Vrati na opće postavke", destructive:true, onAction:() => setConfirmReset(true) },
           { content:"Zatvori", onAction:onClose },
@@ -1654,6 +1660,7 @@ function CollectionConfigModal({ shop, collectionId, collectionTitle, categories
                 hideSaveButton={true}
                 saveRef={saveRef}
                 onDirtyChange={setIsDirty}
+                onValidChange={setIsValid}
               />
             </VerticalStack>
           )}
