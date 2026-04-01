@@ -133,7 +133,12 @@ function sortProducts(products, config={}) {
   }
   function adultSlot(nW,nM){
     const prev=out.at(-1)??null;
-    let t=cfg.firstGender==="W"?(nW>0?"W":"M"):cfg.firstGender==="M"?(nM>0?"M":"W"):nW>nM?"W":nM>nW?"M":(prev?.type===W?"M":"W");
+    // firstGender kontroliše samo prvi odrasli slot — nakon toga uvijek alternira
+    const isFirstAdult=!out.some(x=>x.type===W||x.type===M);
+    let t;
+    if(isFirstAdult&&cfg.firstGender==="W") t=nW>0?"W":"M";
+    else if(isFirstAdult&&cfg.firstGender==="M") t=nM>0?"M":"W";
+    else t=nW>nM?"W":nM>nW?"M":(prev?.type===W?"M":"W");
     const isM=t==="M";
     const it=best(isM?P.menAdults:P.womenAdults)??fromFallback(isM?"men":"women")??pickNextAcc(isM?0:1, isM?1:0);
     if(!it)return{it:null,filledTarget:t};
