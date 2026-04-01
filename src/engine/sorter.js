@@ -136,7 +136,10 @@ function sortProducts(products, config={}) {
     let t=cfg.firstGender==="W"?(nW>0?"W":"M"):cfg.firstGender==="M"?(nM>0?"M":"W"):nW>nM?"W":nM>nW?"M":(prev?.type===W?"M":"W");
     const isM=t==="M";
     const it=best(isM?P.menAdults:P.womenAdults)??fromFallback(isM?"men":"women")??pickNextAcc(isM?0:1, isM?1:0);
-    return{it:it??null,filledTarget:t};
+    if(!it)return{it:null,filledTarget:t};
+    // Koristi stvarni tip itema za praćenje kvote — fallback može vratiti suprotan pol
+    const actualT=it.type===M?"M":it.type===W?"W":t;
+    return{it,filledTarget:actualT};
   }
   function fromFallback(key){const chain=cfg.fallbacks?.[key]??[];for(const k of chain){const pool=PMAP[k];if(pool){const it=best(pool);if(it)return it;}}return null;}
   function kids(p,...fb){return best(p)??fb.reduce((a,f)=>a??best(f),null);}
