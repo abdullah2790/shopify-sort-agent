@@ -368,6 +368,7 @@ function SortApp() {
           <ScheduleTab
             schedule={schedule}
             shop={shop}
+            lastForecast={weatherConfig?.lastForecast || null}
             onSaved={(s) => { setSchedule(s); setSuccess("✅ Raspored sačuvan!"); }}
             onError={setError}
             onDirtyChange={(dirty) => markTabDirty(3, dirty)}
@@ -736,7 +737,7 @@ function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
 }
 
 // ── Schedule Tab ───────────────────────────────────────────────────────────
-function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {} }) {
+function ScheduleTab({ schedule, shop, lastForecast, onSaved, onError, onDirtyChange = () => {} }) {
   const [cfg, setCfg]       = useState({ ...schedule });
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -774,8 +775,44 @@ function ScheduleTab({ schedule, shop, onSaved, onError, onDirtyChange = () => {
 
   const intervalLabel = intervalOptions.find(o => o.value === String(cfg.intervalDays||1))?.label || "";
 
+  const forecastMeta = lastForecast ? (RANG_INFO[lastForecast.rang] || {}) : null;
+
   return (
     <VerticalStack gap="400">
+
+      {/* Zadnja prognoza korištena pri sortu */}
+      {lastForecast && forecastMeta && (
+        <Card>
+          <VerticalStack gap="200">
+            <HorizontalStack align="space-between" blockAlign="center">
+              <Text as="h3" variant="headingSm">Zadnja očitana prognoza</Text>
+              <Text tone="subdued" variant="bodySm">{new Date(lastForecast.readAt).toLocaleString("bs-BA")}</Text>
+            </HorizontalStack>
+            <div style={{
+              display:"flex", gap:"16px", alignItems:"center", flexWrap:"wrap",
+              padding:"12px 16px", borderRadius:"8px",
+              background: forecastMeta.bg, border:`1px solid ${forecastMeta.border}`,
+            }}>
+              <div style={{textAlign:"center", minWidth:"60px"}}>
+                <div style={{fontSize:"32px", fontWeight:700, lineHeight:1}}>{lastForecast.temp}°C</div>
+                <div style={{fontSize:"11px", color:"#6d7175", marginTop:"3px"}}>{lastForecast.resolvedCity || lastForecast.city}</div>
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
+                <div style={{fontSize:"14px", fontWeight:500}}>{lastForecast.description}</div>
+                <span style={{
+                  display:"inline-flex", alignItems:"center", gap:"4px",
+                  padding:"2px 8px", borderRadius:"10px", width:"fit-content",
+                  background:"white", border:`1px solid ${forecastMeta.border}`,
+                  fontSize:"12px", fontWeight:600,
+                }}>
+                  {forecastMeta.emoji} {forecastMeta.label}
+                </span>
+              </div>
+            </div>
+            <Text tone="subdued" variant="bodySm">Ova temperatura je korištena pri posljednjem automatskom sortiranju.</Text>
+          </VerticalStack>
+        </Card>
+      )}
 
       {/* Status kartica */}
       <Card>
@@ -1690,7 +1727,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
   const [cfg, setCfg]   = useState({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
   const [saving, setSaving]   = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [reading, setReading] = useState(false);
   const origRef = useRef({ ...DEFAULT_WEATHER_CONFIG, ...weatherConfig });
   const prevDirtyRef = useRef(false);
 
@@ -1728,23 +1764,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
     finally { setSaving(false); }
   }
 
-  async function handleReadNow() {
-    if (!cfg.city?.trim()) return onError("Unesite naziv grada.");
-    setReading(true);
-    try {
-      const r = await fetch("/api/weather/read", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ shop }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Greška");
-      const updated = { ...cfg, lastForecast: d.forecast };
-      setCfg(updated);
-      onSaved(updated);
-      onSuccess(`✅ Prognoza očitana: ${d.forecast.temp}°C — ${RANG_INFO[d.forecast.rang]?.label || d.forecast.rang}`);
-    } catch(e) { onError(e.message); }
-    finally { setReading(false); }
-  }
 
   function updateRange(name, field, val) {
     setCfg(c => ({
@@ -1906,8 +1925,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
           : <span style={{fontSize:"13px",color:"#6d7175"}}>Sve promjene su sačuvane</span>
         }
         <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-          <Button onClick={handleReadNow} loading={reading} disabled={!cfg.city?.trim() || isDirty}>Čitaj prognozu sada</Button>
-          {isDirty && <Text tone="subdued" variant="bodySm">Sačuvajte postavke prije čitanja prognoze.</Text>}
           <Button variant="primary" onClick={handleSave} loading={saving} disabled={!isDirty}>Sačuvaj postavke</Button>
         </div>
       </div>
