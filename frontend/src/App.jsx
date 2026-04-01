@@ -597,7 +597,7 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
                     </th>
                   );
                 })}
-                <th style={{textAlign:"center",padding:"10px 12px",fontWeight:600,minWidth:"80px"}}>Sprinkler</th>
+                <th style={{textAlign:"center",padding:"10px 12px",fontWeight:600,minWidth:"80px"}}>Aksesoar</th>
               </tr>
             </thead>
             <tbody>
@@ -989,7 +989,7 @@ function AccPriorityList({ items, onChange }) {
     onChange(a);
     setDragIdx(null); setOverIdx(null);
   }
-  if (!items.length) return <div style={{padding:"20px",textAlign:"center",color:"#adb5bd",fontSize:"13px",border:"1px dashed #e1e3e5",borderRadius:"8px"}}>Nema kategorija označenih kao sprinkler.</div>;
+  if (!items.length) return <div style={{padding:"20px",textAlign:"center",color:"#adb5bd",fontSize:"13px",border:"1px dashed #e1e3e5",borderRadius:"8px"}}>Nema kategorija označenih kao aksesoar.</div>;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
       {items.map((cat, i) => (
@@ -1337,7 +1337,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
           <VerticalStack gap="100">
             <Text as="h3" variant="headingSm">Prioritet aksesoara</Text>
             <Text tone="subdued" variant="bodySm">
-              Redoslijed kojim se kategorije aksesoara prikazuju. Kategorije se uzimaju iz onih označenih kao sprinkler u tabu Kategorije. Kategorije na vrhu imaju prednost.
+              Redoslijed kojim se kategorije aksesoara prikazuju. Kategorije se uzimaju iz onih označenih kao aksesoar u tabu Kategorije. Kategorije na vrhu imaju prednost.
             </Text>
           </VerticalStack>
           <AccPriorityList items={accOrder} onChange={(val) => { setAccOrder(val); }} />
@@ -1572,7 +1572,7 @@ function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
                       }}>
                         <td style={{padding:"7px 10px",textAlign:"center",color:"#8c9196",fontWeight:600,fontSize:"12px"}}>{absPos}</td>
                         <td style={{padding:"7px 10px",maxWidth:"220px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {p.score < 0 ? <span title="Sprinkler">⭐ </span> : null}{p.title}
+                          {p.score < 0 ? <span title="Aksesoar">⭐ </span> : null}{p.title}
                         </td>
                         <td style={{padding:"7px 10px",color:"#444"}}>{p.category || <span style={{color:"#bbb"}}>—</span>}</td>
                         <td style={{padding:"7px 10px",textAlign:"center"}}>

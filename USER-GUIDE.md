@@ -66,7 +66,7 @@ U Preview modalu vidite prijedlog novog redoslijeda **bez primjene** na Shopify:
 
 ## 2. Kategorije
 
-Ovdje definirate **sezonski score** za svaku kategoriju proizvoda i označavate **sprinklere**.
+Ovdje definirate **sezonski score** za svaku kategoriju proizvoda i označavate **aksesoare**.
 
 ![Tab Kategorije — tabela kategorija sa scoreovima po rangu](docs/kategorije.png)
 
@@ -85,9 +85,9 @@ Svaka kategorija dobiva score za svaki temperaturni rang. Kategorija s višim sc
 
 > **Napomena:** Pri dodjeljivanju scoreva uzmite u obzir i relevantnost kategorije, ne samo sezonsku prikladnost. Score treba odražavati koliko je kategorija zanimljiva i tražena u datom trenutku — nije dovoljno da je sezonski prikladna ako je kupci rijetko aktivno traže.
 
-### Sprinkler kategorije
+### Aksesoar kategorije
 
-Kategorije označene kao **Sprinkler** (npr. Torbe, Ruksaci, Čarape) tretiraju se kao akcesori — ubacuju se između glavnih proizvoda po posebnom redoslijedu i **ne natječu se** za redovne kvotne pozicije.
+Kategorije označene kao **Aksesoar** (npr. Torbe, Ruksaci, Čarape) tretiraju se kao akcesori — ubacuju se između glavnih proizvoda po posebnom redoslijedu i **ne natječu se** za redovne kvotne pozicije.
 
 ---
 
@@ -110,8 +110,8 @@ Definirate koliko proizvoda svakog tipa se prikazuje po jednoj stranici kolekcij
 | **Djevojčice** | Broj proizvoda za djevojčice |
 | **Dječaci** | Broj proizvoda za dječake |
 | **Bebe** | Broj proizvoda za bebe |
-| **Žen. aksesoar** | Broj ženskih aksesora (sprinkler kategorije) |
-| **Muš. aksesoar** | Broj muških aksesora (sprinkler kategorije) |
+| **Žen. aksesoar** | Broj ženskih aksesora (aksesoar kategorije) |
+| **Muš. aksesoar** | Broj muških aksesora (aksesoar kategorije) |
 | **Ko ide prvi** | **Auto** (naizmjenično), **Žene** ili **Muškarci** |
 
 ### Penali diversifikacije
@@ -133,7 +133,7 @@ Unesite naziv kategorije i pritisnite **Enter** ili **zarez**. Kliknite **×** p
 
 ### Prioritet aksesoara
 
-Redoslijed kojim se sprinkler kategorije ubacuju između glavnih proizvoda. Kategorije na vrhu liste imaju prednost.
+Redoslijed kojim se aksesoar kategorije ubacuju između glavnih proizvoda. Kategorije na vrhu liste imaju prednost.
 
 ![Drag & drop lista prioriteta aksesoara](docs/akcesori.png)
 
@@ -253,7 +253,7 @@ Preporučeni redoslijed postavljanja aplikacije:
 ![Pregled svih tabova](docs/20-workflow.png)
 
 1. **Dodajte kolekcije** koje želite sortirati *(tab Kolekcije → + Dodaj)*
-2. **Podesite kategorije** — unesite sezonske scoreve i označite sprinklere *(tab Kategorije)*
+2. **Podesite kategorije** — unesite sezonske scoreve i označite aksesoare *(tab Kategorije)*
 3. **Podesite Opće postavke** — kvote, penali, fallbacki, težine algoritma *(tab Opće postavke)*
 4. **Podesite Prognozu** — unesite grad i temperaturne granice, kliknite Čitaj prognozu sada *(tab Prognoza)*
 5. **Podesite Raspored** — npr. svaki dan u 03:00 *(tab Raspored)*
