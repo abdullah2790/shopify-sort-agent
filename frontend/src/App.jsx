@@ -1497,7 +1497,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
 
 // ── Sort Preview Modal ──────────────────────────────────────────────────────
 const RANG_COLORS = { Cold:"#d0e8ff", Mild:"#d4f0d4", Warm:"#fff0cc", Hot:"#ffd6cc" };
-const TYPE_LABELS = { "Žene":"Ž","Muškarci":"M","Unisex":"U","Djevojčice":"Dj","Dječaci":"Dč","Bebe":"B" };
+const TYPE_LABELS = { "Žene":"Ž","Muškarci":"M","Unisex":"U","Djevojčice":"Djev","Dječaci":"Dječ","Bebe":"BB" };
 
 function scoreColor(s) {
   if (s < 0)  return "#e8e8e8";
@@ -1828,13 +1828,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
                 onChange={v => { setCfg(c => ({...c, city: v})); }}
                 placeholder="npr. Sarajevo"
                 helpText="Grad za koji se čita prognoza (wttr.in)."
-              />
-              <Select
-                label="Sat automatskog čitanja"
-                options={hourOptions}
-                value={String(cfg.readHour ?? 6)}
-                onChange={v => { setCfg(c => ({...c, readHour: parseInt(v)})); }}
-                helpText="Prognoza se automatski čita u ovom satu. Ako je raspored aktivan, koristi se sat čitanja iz rasporeda."
               />
             </FormLayout.Group>
           </FormLayout>

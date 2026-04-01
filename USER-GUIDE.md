@@ -250,12 +250,12 @@ Za svako sortiranje vidite:
 
 Preporučeni redoslijed postavljanja aplikacije:
 
-![Pregled svih tabova](docs/20-workflow.png)
+![Pregled svih tabova](docs/tab.png)
 
 1. **Dodajte kolekcije** koje želite sortirati *(tab Kolekcije → + Dodaj)*
 2. **Podesite kategorije** — unesite sezonske scoreve i označite aksesoare *(tab Kategorije)*
-3. **Podesite Opće postavke** — kvote, penali, fallbacki, težine algoritma *(tab Opće postavke)*
-4. **Podesite Prognozu** — unesite grad i temperaturne granice, kliknite Čitaj prognozu sada *(tab Prognoza)*
+3. **Podesite Opće postavke** — kvote, penali, fallbacks, težine algoritma *(tab Opće postavke)*
+4. **Podesite Prognozu** — unesite grad i temperaturne granice *(tab Prognoza)*
 5. **Podesite Raspored** — npr. svaki dan u 03:00 *(tab Raspored)*
 6. **Pokrenite prvi sort ručno** — kliknite Sortiraj pored svake kolekcije i provjerite rezultat putem Preview-a
 
