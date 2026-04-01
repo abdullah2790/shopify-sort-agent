@@ -1746,9 +1746,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
     label: `${String(i).padStart(2,"0")}:00`, value: String(i)
   }));
 
-  const forecast = cfg.lastForecast;
-  const rangMeta = forecast ? (RANG_INFO[forecast.rang] || {}) : null;
-
   async function handleSave() {
     setSaving(true);
     try {
@@ -1778,56 +1775,6 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
 
   return (
     <VerticalStack gap="500">
-
-      {/* Zadnja prognoza */}
-      {forecast && rangMeta ? (
-        <Card>
-          <VerticalStack gap="300">
-            <HorizontalStack align="space-between" blockAlign="center">
-              <Text as="h3" variant="headingSm">Zadnja očitana prognoza</Text>
-              <Text tone="subdued" variant="bodySm">
-                {new Date(forecast.readAt).toLocaleString("bs-BA")}
-              </Text>
-            </HorizontalStack>
-            <div style={{
-              display:"flex", gap:"20px", flexWrap:"wrap", alignItems:"center",
-              padding:"16px 20px", borderRadius:"10px",
-              background: rangMeta.bg, border:`1px solid ${rangMeta.border}`,
-            }}>
-              <div style={{textAlign:"center", minWidth:"80px"}}>
-                <div style={{fontSize:"42px", fontWeight:700, lineHeight:1}}>{forecast.temp}°C</div>
-                <div style={{fontSize:"12px", color:"#6d7175", marginTop:"4px"}}>{forecast.resolvedCity || forecast.city}</div>
-                {forecast.resolvedCity && forecast.resolvedCity.toLowerCase() !== forecast.city?.toLowerCase() && (
-                  <div style={{fontSize:"11px", color:"#bf0711", marginTop:"2px"}}>uneseno: "{forecast.city}"</div>
-                )}
-              </div>
-              <div style={{display:"flex", flexDirection:"column", gap:"6px"}}>
-                <div style={{fontSize:"15px", fontWeight:500}}>{forecast.description}</div>
-                <div style={{display:"flex", alignItems:"center", gap:"8px", flexWrap:"wrap"}}>
-                  <span style={{
-                    display:"inline-flex", alignItems:"center", gap:"4px",
-                    padding:"3px 10px", borderRadius:"12px",
-                    background:"white", border:`1px solid ${rangMeta.border}`,
-                    fontSize:"13px", fontWeight:600,
-                  }}>
-                    {rangMeta.emoji} {rangMeta.label}
-                  </span>
-                  <Text variant="bodySm" tone="subdued">
-                    → koristi <strong>{rangMeta.label}</strong> scoreve iz Kategorija
-                  </Text>
-                </div>
-                <Text variant="bodySm" tone="subdued">
-                  Osjeća se kao {forecast.feelsLike}°C · Vlažnost {forecast.humidity}%
-                </Text>
-              </div>
-            </div>
-          </VerticalStack>
-        </Card>
-      ) : (
-        <Banner tone="warning">
-          <p>Prognoza još nije očitana. Unesite grad i kliknite <strong>Čitaj sada</strong>.</p>
-        </Banner>
-      )}
 
       {/* Postavke */}
       <Card>
