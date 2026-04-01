@@ -1770,7 +1770,10 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
             }}>
               <div style={{textAlign:"center", minWidth:"80px"}}>
                 <div style={{fontSize:"42px", fontWeight:700, lineHeight:1}}>{forecast.temp}°C</div>
-                <div style={{fontSize:"12px", color:"#6d7175", marginTop:"4px"}}>{forecast.city}</div>
+                <div style={{fontSize:"12px", color:"#6d7175", marginTop:"4px"}}>{forecast.resolvedCity || forecast.city}</div>
+                {forecast.resolvedCity && forecast.resolvedCity.toLowerCase() !== forecast.city?.toLowerCase() && (
+                  <div style={{fontSize:"11px", color:"#bf0711", marginTop:"2px"}}>uneseno: "{forecast.city}"</div>
+                )}
               </div>
               <div style={{display:"flex", flexDirection:"column", gap:"6px"}}>
                 <div style={{fontSize:"15px", fontWeight:500}}>{forecast.description}</div>

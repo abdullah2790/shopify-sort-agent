@@ -44,6 +44,11 @@ async function fetchWeatherForecast(city, targetHour) {
   const cond = data.current_condition?.[0];
   if (!cond) throw new Error("Nevaljan odgovor weather API-ja");
 
+  const area = data.nearest_area?.[0];
+  const resolvedCity = area
+    ? [area.areaName?.[0]?.value, area.country?.[0]?.value].filter(Boolean).join(", ")
+    : null;
+
   // Pokušaj naći hourly forecast za ciljani sat
   const hourly = data.weather?.[0]?.hourly;
   if (hourly && hourly.length && targetHour != null) {
@@ -59,6 +64,7 @@ async function fetchWeatherForecast(city, targetHour) {
       description: closest.weatherDesc?.[0]?.value || cond.weatherDesc?.[0]?.value || "",
       feelsLike:   parseInt(closest.FeelsLikeC ?? closest.tempC),
       humidity:    parseInt(closest.humidity   ?? cond.humidity ?? 0),
+      resolvedCity,
     };
   }
 
@@ -68,6 +74,7 @@ async function fetchWeatherForecast(city, targetHour) {
     description: cond.weatherDesc?.[0]?.value || "",
     feelsLike:   parseInt(cond.FeelsLikeC ?? cond.temp_C),
     humidity:    parseInt(cond.humidity   ?? 0),
+    resolvedCity,
   };
 }
 
@@ -118,6 +125,7 @@ async function readAndStoreWeather(shopId, targetHour) {
     forecastHour: hour,
     readAt:      new Date().toISOString(),
     city,
+    resolvedCity: weather.resolvedCity || null,
   };
 
   await saveWeatherConfig(shopId, { ...cfg, lastForecast });

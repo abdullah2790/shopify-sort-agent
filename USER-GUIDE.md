@@ -95,13 +95,11 @@ Kategorije označene kao **Sprinkler** (npr. Torbe, Ruksaci, Čarape) tretiraju 
 
 Default postavke koje vrijede za **sve kolekcije**, osim onih koje imaju vlastite postavke.
 
-![Tab Opće postavke — pregled svih sekcija](docs/07-opce-postavke.png)
-
 ### Kvote po stranici
 
 Definirate koliko proizvoda svakog tipa se prikazuje po jednoj stranici kolekcije.
 
-> **Ukupan zbroj mora biti tačno 24.**
+> **Ukupan zbir mora biti tačno 24.**
 
 ![Sekcija Kvote po stranici](docs/kvote.png)
 
@@ -127,7 +125,7 @@ Sprječavaju da ista kategorija, boja ili tip budu na uzastopnim pozicijama. Št
 
 ### Zabranjene kategorije
 
-Kategorije koje se **ne pojavljuju na prvoj stranici** (defaultno prvih 24 pozicije). Korisno za kategorije poput Setovi ili Potkošulje koje ne trebaju biti istaknute.
+Kategorije koje se **ne pojavljuju na prvoj stranici** (defaultno prvih 24 pozicije).
 
 ![Sekcija Zabranjene kategorije](docs/zabranjene.png)
 
