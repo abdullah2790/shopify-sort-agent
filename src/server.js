@@ -23,6 +23,9 @@ function mergeWithDefaults(config) {
 }
 
 function getCredentials(appIndex) {
+  if (appIndex === 3 && process.env.SHOPIFY_API_KEY_3) {
+    return { key: process.env.SHOPIFY_API_KEY_3, secret: process.env.SHOPIFY_API_SECRET_3 };
+  }
   if (appIndex === 2 && process.env.SHOPIFY_API_KEY_2) {
     return { key: process.env.SHOPIFY_API_KEY_2, secret: process.env.SHOPIFY_API_SECRET_2 };
   }
@@ -50,7 +53,9 @@ function makeInstallHandler(appIndex) {
     const { shop } = req.query;
     if (!shop) return res.status(400).send("Nedostaje shop");
     const { key } = getCredentials(appIndex);
-    const callbackUrl = appIndex === 2
+    const callbackUrl = appIndex === 3
+      ? `${process.env.SHOPIFY_APP_URL}/auth/callback3`
+      : appIndex === 2
       ? `${process.env.SHOPIFY_APP_URL}/auth/callback2`
       : `${process.env.SHOPIFY_APP_URL}/auth/callback`;
     const { url } = buildInstallUrl(shop, key, callbackUrl, "read_products,write_products,read_orders");
@@ -77,8 +82,10 @@ function makeCallbackHandler(appIndex) {
 
 app.get("/auth/install", makeInstallHandler(1));
 app.get("/auth/install2", makeInstallHandler(2));
+app.get("/auth/install3", makeInstallHandler(3));
 app.get("/auth/callback", makeCallbackHandler(1));
 app.get("/auth/callback2", makeCallbackHandler(2));
+app.get("/auth/callback3", makeCallbackHandler(3));
 
 // ── Webhooks ───────────────────────────────────────────────────────────────
 app.post("/webhooks/app-uninstalled", async (req, res) => {
