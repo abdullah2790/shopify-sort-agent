@@ -1240,7 +1240,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
       JSON.stringify(categoryGroups) !== JSON.stringify(o.categoryGroups);
     setIsDirty(dirty);
     if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
-  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder)]);
+  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder), JSON.stringify(categoryGroups)]);
 
   function addBanned(val) {
     const trimmed = val.trim();
