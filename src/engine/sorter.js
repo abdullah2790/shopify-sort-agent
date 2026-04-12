@@ -18,6 +18,14 @@ function sortProducts(products, config={}) {
   }
   function gcat(normCategory) { return CAT_GROUPS[normCategory] ?? normCategory; }
 
+  // Grupe boja
+  const COLOR_GROUPS = {};
+  for (const g of (cfg.colorGroups || [])) {
+    const gName = normText(g.name);
+    for (const c of (g.colors || [])) COLOR_GROUPS[normText(c)] = gName;
+  }
+  function gcolor(color) { const n = normText(color); return COLOR_GROUPS[n] ?? n; }
+
   const W=cfg.womenType,M=cfg.menType,U=cfg.unisexType,G=cfg.girlsType,B=cfg.boysType,BB=cfg.babyType;
 
   const items = products.map((p,idx)=>{
@@ -50,11 +58,11 @@ function sortProducts(products, config={}) {
   function sc(it){
     const p1=out.at(-1)??null,p2=out.at(-2)??null,p3=out.at(-3)??null,p4=out.at(-4)??null,p5=out.at(-5)??null;
     let pen=0;
-    if(p1){if(gcat(it.normCategory)===gcat(p1.normCategory))pen+=PEN.c*relax;if(it.color===p1.color)pen+=PEN.col*relax;if(it.type===p1.type)pen+=PEN.t*relax;}
-    if(p2){if(gcat(it.normCategory)===gcat(p2.normCategory))pen+=PEN.c2*relax;if(it.color===p2.color)pen+=PEN.col2*relax;if(it.type===p2.type)pen+=PEN.t2*relax;}
-    if(p3){if(gcat(it.normCategory)===gcat(p3.normCategory))pen+=PEN.c3*relax;if(it.color===p3.color)pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}
-    if(p4){if(gcat(it.normCategory)===gcat(p4.normCategory))pen+=PEN.c4*relax;if(it.color===p4.color)pen+=PEN.col4*relax;if(it.type===p4.type)pen+=PEN.t4*relax;}
-    if(p5){if(gcat(it.normCategory)===gcat(p5.normCategory))pen+=PEN.c5*relax;if(it.color===p5.color)pen+=PEN.col5*relax;if(it.type===p5.type)pen+=PEN.t5*relax;}
+    if(p1){if(gcat(it.normCategory)===gcat(p1.normCategory))pen+=PEN.c*relax;if(gcolor(it.color)===gcolor(p1.color))pen+=PEN.col*relax;if(it.type===p1.type)pen+=PEN.t*relax;}
+    if(p2){if(gcat(it.normCategory)===gcat(p2.normCategory))pen+=PEN.c2*relax;if(gcolor(it.color)===gcolor(p2.color))pen+=PEN.col2*relax;if(it.type===p2.type)pen+=PEN.t2*relax;}
+    if(p3){if(gcat(it.normCategory)===gcat(p3.normCategory))pen+=PEN.c3*relax;if(gcolor(it.color)===gcolor(p3.color))pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}
+    if(p4){if(gcat(it.normCategory)===gcat(p4.normCategory))pen+=PEN.c4*relax;if(gcolor(it.color)===gcolor(p4.color))pen+=PEN.col4*relax;if(it.type===p4.type)pen+=PEN.t4*relax;}
+    if(p5){if(gcat(it.normCategory)===gcat(p5.normCategory))pen+=PEN.c5*relax;if(gcolor(it.color)===gcolor(p5.color))pen+=PEN.col5*relax;if(it.type===p5.type)pen+=PEN.t5*relax;}
     const pIdx=ACC_ORDER.indexOf(it.normCategory);
     const base=flatMode?(ACC_ORDER.length>0&&pIdx>=0?ACC_ORDER.length-pIdx:0):it.score;
     return base-pen+(Math.random()-0.5)*cfg.jitter;
@@ -68,7 +76,7 @@ function sortProducts(products, config={}) {
   }
   function commit(pool,it){
     const p=out.at(-1)??null;
-    const same=p&&gcat(it.normCategory)===gcat(p.normCategory)&&it.color===p.color&&it.type===p.type;
+    const same=p&&gcat(it.normCategory)===gcat(p.normCategory)&&gcolor(it.color)===gcolor(p.color)&&it.type===p.type;
     relax=same?Math.max(relax*cfg.relaxStep,cfg.minRelaxFactor):Math.min(1.0,relax/cfg.relaxStep);
     out.push(it);if(pool){pool.remove(it);pool.maybeCompact();}
   }

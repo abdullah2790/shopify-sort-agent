@@ -1204,7 +1204,9 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
   const [categoryGroups, setCategoryGroups] = useState(config.categoryGroups || []);
-  const [groupTyping, setGroupTyping] = useState({});  // { [groupIdx]: string }
+  const [groupTyping, setGroupTyping] = useState({});
+  const [colorGroups, setColorGroups] = useState(config.colorGroups || []);
+  const [colorGroupTyping, setColorGroupTyping] = useState({});
 
   const sprinklerCats = categories.filter(c => c.is_sprinkler).map(c => c.handle);
   function initAccOrder(savedOrder) {
@@ -1223,8 +1225,9 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
     const nf = { ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) };
     const na = initAccOrder(config.accessoryCategoryOrder);
     const ng = config.categoryGroups || [];
-    origCfgRef.current = { cfg: nc, bannedList: nb, fallbacks: nf, accOrder: na, categoryGroups: ng };
-    setCfg(nc); setBannedList(nb); setFallbacks(nf); setAccOrder(na); setCategoryGroups(ng);
+    const ncg = config.colorGroups || [];
+    origCfgRef.current = { cfg: nc, bannedList: nb, fallbacks: nf, accOrder: na, categoryGroups: ng, colorGroups: ncg };
+    setCfg(nc); setBannedList(nb); setFallbacks(nf); setAccOrder(na); setCategoryGroups(ng); setColorGroups(ncg);
     setIsDirty(false); onDirtyChange(false);
   }, [config, categories]);
 
@@ -1237,10 +1240,11 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
       JSON.stringify(bannedList)     !== JSON.stringify(o.bannedList) ||
       JSON.stringify(fallbacks)      !== JSON.stringify(o.fallbacks) ||
       JSON.stringify(accOrder)       !== JSON.stringify(o.accOrder) ||
-      JSON.stringify(categoryGroups) !== JSON.stringify(o.categoryGroups);
+      JSON.stringify(categoryGroups) !== JSON.stringify(o.categoryGroups) ||
+      JSON.stringify(colorGroups)    !== JSON.stringify(o.colorGroups);
     setIsDirty(dirty);
     if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
-  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder), JSON.stringify(categoryGroups)]);
+  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder), JSON.stringify(categoryGroups), JSON.stringify(colorGroups)]);
 
   function addBanned(val) {
     const trimmed = val.trim();
@@ -1267,7 +1271,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   async function handleSave() {
     if (!pageTotalValid || !weightsValid) return;
     setSaving(true);
-    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder, categoryGroups });
+    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder, categoryGroups, colorGroups });
     setSaving(false);
     setIsDirty(false); onDirtyChange(false);
   }
@@ -1553,6 +1557,104 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
               variant="plain"
               onClick={() => setCategoryGroups(gs => [...gs, { name: "", categories: [] }])}
             >+ Dodaj grupu</Button>
+          </VerticalStack>
+        </VerticalStack>
+      </Card>
+
+      {/* Grupe boja */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Grupe boja</Text>
+            <Text tone="subdued" variant="bodySm">
+              Boje unutar iste grupe tretiraju se kao jedna pri provjeri diversifikacije.
+              Npr. grupiraj "Navy", "Royal Blue" i "Tamno plava" da se ne pojavljuju jedna do druge.
+            </Text>
+          </VerticalStack>
+
+          <VerticalStack gap="300">
+            {colorGroups.map((group, gi) => (
+              <div key={gi} style={{border:"1px solid #e1e3e5",borderRadius:"8px",padding:"12px",background:"#fafbfb"}}>
+                <VerticalStack gap="200">
+                  <HorizontalStack align="space-between" blockAlign="center">
+                    <div style={{flex:1, marginRight:"12px"}}>
+                      <input
+                        placeholder="Naziv grupe boja (npr. Plava)"
+                        value={group.name}
+                        onChange={e => setColorGroups(gs => gs.map((g,i) => i===gi ? {...g, name: e.target.value} : g))}
+                        style={{width:"100%",border:"1px solid #c9cccf",borderRadius:"6px",padding:"6px 10px",fontSize:"14px",background:"white"}}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setColorGroups(gs => gs.filter((_,i) => i !== gi))}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#d72c0d",fontSize:"18px",lineHeight:1,padding:"4px"}}
+                      title="Ukloni grupu"
+                    >×</button>
+                  </HorizontalStack>
+
+                  <div style={{
+                    display:"flex", flexWrap:"wrap", gap:"6px", alignItems:"center",
+                    padding:"8px 10px", borderRadius:"6px",
+                    border:"1px solid #c9cccf", background:"white", minHeight:"40px",
+                    cursor:"text",
+                  }}
+                    onClick={() => document.getElementById(`color-group-input-${gi}`)?.focus()}
+                  >
+                    {(group.colors || []).map(col => (
+                      <span key={col} style={{
+                        display:"inline-flex", alignItems:"center", gap:"4px",
+                        padding:"2px 8px", borderRadius:"12px",
+                        background:"#f3e8ff", border:"1px solid #c8a0e8",
+                        fontSize:"13px", fontWeight:500, color:"#4a1a6b",
+                      }}>
+                        {col}
+                        <span
+                          onClick={e => { e.stopPropagation(); setColorGroups(gs => gs.map((g,i) => i===gi ? {...g, colors: g.colors.filter(c=>c!==col)} : g)); }}
+                          style={{cursor:"pointer",fontSize:"13px",color:"#6a2a8b",lineHeight:1}}
+                        >×</span>
+                      </span>
+                    ))}
+                    <input
+                      id={`color-group-input-${gi}`}
+                      value={colorGroupTyping[gi] || ""}
+                      onChange={e => {
+                        const v = e.target.value;
+                        if (v.endsWith(",")) {
+                          const trimmed = v.slice(0,-1).trim();
+                          if (trimmed && !(group.colors||[]).includes(trimmed)) {
+                            setColorGroups(gs => gs.map((g,i) => i===gi ? {...g, colors:[...(g.colors||[]),trimmed]} : g));
+                          }
+                          setColorGroupTyping(t => ({...t, [gi]: ""}));
+                          return;
+                        }
+                        setColorGroupTyping(t => ({...t, [gi]: v}));
+                      }}
+                      onKeyDown={e => {
+                        const v = colorGroupTyping[gi] || "";
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const trimmed = v.trim();
+                          if (trimmed && !(group.colors||[]).includes(trimmed)) {
+                            setColorGroups(gs => gs.map((g,i) => i===gi ? {...g, colors:[...(g.colors||[]),trimmed]} : g));
+                          }
+                          setColorGroupTyping(t => ({...t, [gi]: ""}));
+                        }
+                        if (e.key === "Backspace" && !v && (group.colors||[]).length) {
+                          setColorGroups(gs => gs.map((g,i) => i===gi ? {...g, colors: g.colors.slice(0,-1)} : g));
+                        }
+                      }}
+                      placeholder={(group.colors||[]).length ? "" : "Upiši boju i pritisni Enter..."}
+                      style={{border:"none",outline:"none",fontSize:"13px",flex:1,minWidth:"160px",padding:"2px 0",background:"transparent"}}
+                    />
+                  </div>
+                </VerticalStack>
+              </div>
+            ))}
+
+            <Button
+              variant="plain"
+              onClick={() => setColorGroups(gs => [...gs, { name: "", colors: [] }])}
+            >+ Dodaj grupu boja</Button>
           </VerticalStack>
         </VerticalStack>
       </Card>
