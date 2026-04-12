@@ -1203,6 +1203,8 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
   const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
+  const [categoryGroups, setCategoryGroups] = useState(config.categoryGroups || []);
+  const [groupTyping, setGroupTyping] = useState({});  // { [groupIdx]: string }
 
   const sprinklerCats = categories.filter(c => c.is_sprinkler).map(c => c.handle);
   function initAccOrder(savedOrder) {
@@ -1220,8 +1222,9 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
     const nb = config.bannedCategoriesTopN || [];
     const nf = { ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) };
     const na = initAccOrder(config.accessoryCategoryOrder);
-    origCfgRef.current = { cfg: nc, bannedList: nb, fallbacks: nf, accOrder: na };
-    setCfg(nc); setBannedList(nb); setFallbacks(nf); setAccOrder(na);
+    const ng = config.categoryGroups || [];
+    origCfgRef.current = { cfg: nc, bannedList: nb, fallbacks: nf, accOrder: na, categoryGroups: ng };
+    setCfg(nc); setBannedList(nb); setFallbacks(nf); setAccOrder(na); setCategoryGroups(ng);
     setIsDirty(false); onDirtyChange(false);
   }, [config, categories]);
 
@@ -1230,10 +1233,11 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
     if (!origCfgRef.current) return;
     const o = origCfgRef.current;
     const dirty =
-      JSON.stringify(cfg)        !== JSON.stringify(o.cfg) ||
-      JSON.stringify(bannedList) !== JSON.stringify(o.bannedList) ||
-      JSON.stringify(fallbacks)  !== JSON.stringify(o.fallbacks) ||
-      JSON.stringify(accOrder)   !== JSON.stringify(o.accOrder);
+      JSON.stringify(cfg)            !== JSON.stringify(o.cfg) ||
+      JSON.stringify(bannedList)     !== JSON.stringify(o.bannedList) ||
+      JSON.stringify(fallbacks)      !== JSON.stringify(o.fallbacks) ||
+      JSON.stringify(accOrder)       !== JSON.stringify(o.accOrder) ||
+      JSON.stringify(categoryGroups) !== JSON.stringify(o.categoryGroups);
     setIsDirty(dirty);
     if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
   }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder)]);
@@ -1263,7 +1267,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   async function handleSave() {
     if (!pageTotalValid || !weightsValid) return;
     setSaving(true);
-    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder });
+    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder, categoryGroups });
     setSaving(false);
     setIsDirty(false); onDirtyChange(false);
   }
@@ -1452,6 +1456,104 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
               />
             </FormLayout.Group>
           </FormLayout>
+        </VerticalStack>
+      </Card>
+
+      {/* Grupe kategorija */}
+      <Card>
+        <VerticalStack gap="400">
+          <VerticalStack gap="100">
+            <Text as="h3" variant="headingSm">Grupe kategorija</Text>
+            <Text tone="subdued" variant="bodySm">
+              Kategorije unutar iste grupe tretiraju se kao jedna pri provjeri diversifikacije.
+              Npr. grupiraj "Farmerke" i "Pantalone" da se ne pojavljuju jedna do druge.
+            </Text>
+          </VerticalStack>
+
+          <VerticalStack gap="300">
+            {categoryGroups.map((group, gi) => (
+              <div key={gi} style={{border:"1px solid #e1e3e5",borderRadius:"8px",padding:"12px",background:"#fafbfb"}}>
+                <VerticalStack gap="200">
+                  <HorizontalStack align="space-between" blockAlign="center">
+                    <div style={{flex:1, marginRight:"12px"}}>
+                      <input
+                        placeholder="Naziv grupe (npr. Pantalone)"
+                        value={group.name}
+                        onChange={e => setCategoryGroups(gs => gs.map((g,i) => i===gi ? {...g, name: e.target.value} : g))}
+                        style={{width:"100%",border:"1px solid #c9cccf",borderRadius:"6px",padding:"6px 10px",fontSize:"14px",background:"white"}}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setCategoryGroups(gs => gs.filter((_,i) => i !== gi))}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#d72c0d",fontSize:"18px",lineHeight:1,padding:"4px"}}
+                      title="Ukloni grupu"
+                    >×</button>
+                  </HorizontalStack>
+
+                  <div style={{
+                    display:"flex", flexWrap:"wrap", gap:"6px", alignItems:"center",
+                    padding:"8px 10px", borderRadius:"6px",
+                    border:"1px solid #c9cccf", background:"white", minHeight:"40px",
+                    cursor:"text",
+                  }}
+                    onClick={() => document.getElementById(`group-input-${gi}`)?.focus()}
+                  >
+                    {(group.categories || []).map(cat => (
+                      <span key={cat} style={{
+                        display:"inline-flex", alignItems:"center", gap:"4px",
+                        padding:"2px 8px", borderRadius:"12px",
+                        background:"#e3f1ff", border:"1px solid #a0c8f0",
+                        fontSize:"13px", fontWeight:500, color:"#0a3a6b",
+                      }}>
+                        {cat}
+                        <span
+                          onClick={e => { e.stopPropagation(); setCategoryGroups(gs => gs.map((g,i) => i===gi ? {...g, categories: g.categories.filter(c=>c!==cat)} : g)); }}
+                          style={{cursor:"pointer",fontSize:"13px",color:"#0a5a9b",lineHeight:1}}
+                        >×</span>
+                      </span>
+                    ))}
+                    <input
+                      id={`group-input-${gi}`}
+                      value={groupTyping[gi] || ""}
+                      onChange={e => {
+                        const v = e.target.value;
+                        if (v.endsWith(",")) {
+                          const trimmed = v.slice(0,-1).trim();
+                          if (trimmed && !(group.categories||[]).includes(trimmed)) {
+                            setCategoryGroups(gs => gs.map((g,i) => i===gi ? {...g, categories:[...(g.categories||[]),trimmed]} : g));
+                          }
+                          setGroupTyping(t => ({...t, [gi]: ""}));
+                          return;
+                        }
+                        setGroupTyping(t => ({...t, [gi]: v}));
+                      }}
+                      onKeyDown={e => {
+                        const v = groupTyping[gi] || "";
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const trimmed = v.trim();
+                          if (trimmed && !(group.categories||[]).includes(trimmed)) {
+                            setCategoryGroups(gs => gs.map((g,i) => i===gi ? {...g, categories:[...(g.categories||[]),trimmed]} : g));
+                          }
+                          setGroupTyping(t => ({...t, [gi]: ""}));
+                        }
+                        if (e.key === "Backspace" && !v && (group.categories||[]).length) {
+                          setCategoryGroups(gs => gs.map((g,i) => i===gi ? {...g, categories: g.categories.slice(0,-1)} : g));
+                        }
+                      }}
+                      placeholder={(group.categories||[]).length ? "" : "Upiši kategoriju i pritisni Enter..."}
+                      style={{border:"none",outline:"none",fontSize:"13px",flex:1,minWidth:"160px",padding:"2px 0",background:"transparent"}}
+                    />
+                  </div>
+                </VerticalStack>
+              </div>
+            ))}
+
+            <Button
+              variant="plain"
+              onClick={() => setCategoryGroups(gs => [...gs, { name: "", categories: [] }])}
+            >+ Dodaj grupu</Button>
+          </VerticalStack>
         </VerticalStack>
       </Card>
 

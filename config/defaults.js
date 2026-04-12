@@ -41,6 +41,7 @@ module.exports = {
   firstGender       : "auto",
   banTopN              : 24,
   bannedCategoriesTopN : ["Setovi", "Potkošulje"],
+  categoryGroups: [],  // npr. [{ name: "Pantalone", categories: ["Farmerke", "Pantalone"] }]
   sprinklerScoreValue: -1,
   accessoryCategories: [
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
