@@ -58,6 +58,7 @@ function sortProducts(products, config={}) {
   function sc(it){
     const p1=out.at(-1)??null,p2=out.at(-2)??null,p3=out.at(-3)??null,p4=out.at(-4)??null,p5=out.at(-5)??null;
     let pen=0;
+    if(cfg.minCategoryGap>0){const gc=gcat(it.normCategory);const start=Math.max(0,out.length-cfg.minCategoryGap);for(let i=start;i<out.length;i++){if(gcat(out[i].normCategory)===gc){pen+=100;break;}}}
     if(p1){if(gcat(it.normCategory)===gcat(p1.normCategory))pen+=PEN.c*relax;if(gcolor(it.color)===gcolor(p1.color))pen+=PEN.col*relax;if(it.type===p1.type)pen+=PEN.t*relax;}
     if(p2){if(gcat(it.normCategory)===gcat(p2.normCategory))pen+=PEN.c2*relax;if(gcolor(it.color)===gcolor(p2.color))pen+=PEN.col2*relax;if(it.type===p2.type)pen+=PEN.t2*relax;}
     if(p3){if(gcat(it.normCategory)===gcat(p3.normCategory))pen+=PEN.c3*relax;if(gcolor(it.color)===gcolor(p3.color))pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}

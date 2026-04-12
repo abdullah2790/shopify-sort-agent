@@ -1750,6 +1750,28 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
 
           <div style={{display:"flex", gap:"16px", flexWrap:"wrap"}}>
 
+            {/* Minimalni razmak kategorije */}
+            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
+                <div>
+                  <div style={{fontWeight:600, fontSize:"14px"}}>Min. razmak kategorije</div>
+                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Pozicija između iste kategorije</div>
+                </div>
+                <input
+                  type="number" min="0" max="20" step="1"
+                  value={num("minCategoryGap")}
+                  onChange={e=>setNum("minCategoryGap",e.target.value)}
+                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
+                />
+              </div>
+              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
+                Ista kategorija (ili grupa) ne može se pojaviti unutar N pozicija.
+                <br/><span style={{color:"#1a6b3a"}}>0 = isključeno</span> ·
+                <span style={{color:"#b98900"}}> 4 = svakih 4 mjesta</span> ·
+                <span style={{color:"#d72c0d"}}> 8 = rijetko</span>
+              </div>
+            </div>
+
             {/* Jitter */}
             <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
