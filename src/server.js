@@ -273,6 +273,15 @@ app.get("/api/sort-preview", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put("/api/watched-collections/folder", async (req, res) => {
+  const { shop, collectionId, folder } = req.body;
+  try {
+    const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    await db.query(`UPDATE watched_collections SET folder = $1 WHERE shop_id = $2 AND collection_id = $3`, [folder || null, s.id, collectionId]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/api/watched-collections/bulk-remove", async (req, res) => {
   const { shop, collectionIds, all } = req.body;
   try {

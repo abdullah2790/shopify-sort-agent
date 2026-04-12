@@ -59,6 +59,8 @@ async function migrate() {
 
     await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_sprinkler BOOLEAN DEFAULT FALSE;`);
 
+    await client.query(`ALTER TABLE watched_collections ADD COLUMN IF NOT EXISTS folder VARCHAR(100) DEFAULT NULL;`);
+
     await client.query(`ALTER TABLE shop_configs ADD COLUMN IF NOT EXISTS weather_config JSONB DEFAULT NULL;`);
 
     // Migracija: pretvori stare season_scores (zima/proljece/ljeto/jesen) u rang formu (Cold/Mild/Warm/Hot)

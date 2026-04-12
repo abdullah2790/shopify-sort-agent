@@ -76,6 +76,9 @@ function SortApp() {
   const [previewModal, setPreviewModal] = useState(null);
   const [addingAll, setAddingAll] = useState(false);
   const [confirmAddAll, setConfirmAddAll] = useState(false);
+  const [folderModal, setFolderModal] = useState(null); // { collectionId, title, currentFolder }
+  const [folderInput, setFolderInput] = useState("");
+  const [collapsedFolders, setCollapsedFolders] = useState({});
   const dirtyTabsRef = useRef({});
   const tabsContainerRef = useRef(null);
   const [confirmLeave, setConfirmLeave] = useState({ open: false, targetTab: null });
@@ -224,6 +227,15 @@ function SortApp() {
     } catch (e) { setError(e.message); }
   }
 
+  async function assignFolder(collectionId, folder) {
+    try {
+      const res = await fetch("/api/watched-collections/folder", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({shop, collectionId, folder}) });
+      if (!res.ok) throw new Error((await res.json()).error || "Greška");
+      setWatched(prev => prev.map(w => w.collection_id === collectionId ? { ...w, folder: folder || null } : w));
+      setFolderModal(null);
+    } catch(e) { setError(e.message); }
+  }
+
   if (!shop) return <Page title="Smart Sort"><Banner tone="critical"><p>Pristupite kroz Shopify Admin.</p></Banner></Page>;
 
   if (loading) return (
@@ -276,63 +288,23 @@ function SortApp() {
 
         {/* ── Tab 0: Kolekcije ── */}
         {tab===0 && (
-          <Card>
-            <VerticalStack gap="400">
-              <HorizontalStack align="space-between">
-                <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
-                <HorizontalStack gap="200">
-                  <Button variant="plain" loading={addingAll} onClick={()=>setConfirmAddAll(true)}>+ Dodaj sve</Button>
-                  <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
-                </HorizontalStack>
-              </HorizontalStack>
-              {activeWatched.length===0 ? (
-                <EmptyState heading="Nema praćenih kolekcija" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">
-                  <Button onClick={()=>setAddModal(true)}>Dodaj kolekciju</Button>
-                </EmptyState>
-              ) : (
-                <ResourceList
-                  idForItem={(item) => item.collection_id}
-                  items={activeWatched}
-                  selectedItems={selectedCols}
-                  onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
-                  selectable
-                  promotedBulkActions={[
-                    { content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) },
-                  ]}
-                  bulkActions={[
-                    { content:"Ukloni sve kolekcije", destructive:true, onAction:()=>bulkRemove(true) },
-                  ]}
-                  renderItem={(item) => {
-                    const isSorting = sorting===item.collection_id;
-                    const hasOwn = !!item.collection_config;
-                    return (
-                      <ResourceItem id={item.collection_id} shortcutActions={[
-                        { content:isSorting?"Sortira...":"Sortiraj", loading:isSorting, onAction:()=>runSort(item.collection_id, item.collection_title) },
-                        { content:"Preview", onAction:()=>setPreviewModal({ collectionId: item.collection_id, title: item.collection_title }) },
-                        { content:"Postavke", onAction:()=>setConfigModal(item.collection_id) },
-                        { content:"Ukloni", destructive:true, onAction:()=>removeCollection(item.collection_id) },
-                      ]}>
-                        <HorizontalStack align="space-between" blockAlign="center">
-                          <VerticalStack gap="100">
-                            <HorizontalStack gap="200" blockAlign="center">
-                              <Text fontWeight="semibold">{item.collection_title}</Text>
-                              {hasOwn && <Badge tone="info">Vlastite postavke</Badge>}
-                            </HorizontalStack>
-                            <Text tone="subdued" variant="bodySm">
-                              Zadnji sort: {item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : "Nikad"}
-                            </Text>
-                          </VerticalStack>
-                          <Badge tone={item.last_sorted_at?"success":"attention"}>
-                            {item.last_sorted_at?"Sortirano":"Čeka"}
-                          </Badge>
-                        </HorizontalStack>
-                      </ResourceItem>
-                    );
-                  }}
-                />
-              )}
-            </VerticalStack>
-          </Card>
+          <CollectionsTab
+            activeWatched={activeWatched}
+            sorting={sorting}
+            selectedCols={selectedCols}
+            setSelectedCols={setSelectedCols}
+            runSort={runSort}
+            setPreviewModal={setPreviewModal}
+            setConfigModal={setConfigModal}
+            removeCollection={removeCollection}
+            bulkRemove={bulkRemove}
+            addingAll={addingAll}
+            setConfirmAddAll={setConfirmAddAll}
+            setAddModal={setAddModal}
+            setFolderModal={(item) => { setFolderModal(item); setFolderInput(item.currentFolder || ""); }}
+            collapsedFolders={collapsedFolders}
+            setCollapsedFolders={setCollapsedFolders}
+          />
         )}
 
         {/* ── Tab 1: Kategorije ── */}
@@ -483,7 +455,158 @@ function SortApp() {
           onClose={()=>setPreviewModal(null)}
         />
       )}
+
+      {folderModal && (() => {
+        const existingFolders = [...new Set(watched.filter(w=>w.active && w.folder).map(w=>w.folder))].sort();
+        return (
+          <Modal
+            open
+            onClose={()=>setFolderModal(null)}
+            title={`Folder — ${folderModal.title}`}
+            primaryAction={{ content:"Spremi", onAction:()=>assignFolder(folderModal.collectionId, folderInput.trim()) }}
+            secondaryActions={[
+              ...(folderModal.currentFolder ? [{ content:"Ukloni iz foldera", destructive:true, onAction:()=>assignFolder(folderModal.collectionId, null) }] : []),
+              { content:"Odustani", onAction:()=>setFolderModal(null) },
+            ]}
+          >
+            <Modal.Section>
+              <VerticalStack gap="300">
+                <TextField
+                  label="Naziv foldera"
+                  value={folderInput}
+                  onChange={setFolderInput}
+                  placeholder="npr. Muški, Ženski, Djeca..."
+                  autoComplete="off"
+                />
+                {existingFolders.length > 0 && (
+                  <VerticalStack gap="100">
+                    <Text tone="subdued" variant="bodySm">Postojeći folderi:</Text>
+                    <HorizontalStack gap="200" wrap>
+                      {existingFolders.map(f => (
+                        <button key={f} onClick={()=>setFolderInput(f)} style={{cursor:"pointer",padding:"4px 10px",borderRadius:"14px",border:"1px solid #c9cccf",background:folderInput===f?"#5c6ac4":"#f4f6f8",color:folderInput===f?"#fff":"#202223",fontSize:"12px"}}>
+                          {f}
+                        </button>
+                      ))}
+                    </HorizontalStack>
+                  </VerticalStack>
+                )}
+              </VerticalStack>
+            </Modal.Section>
+          </Modal>
+        );
+      })()}
     </Page>
+  );
+}
+
+// ── Kolekcije Tab ─────────────────────────────────────────────────────────
+function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders }) {
+  // Group collections by folder; null = ungrouped
+  const folders = [...new Set(activeWatched.map(w => w.folder || null))].filter(Boolean).sort();
+  const ungrouped = activeWatched.filter(w => !w.folder);
+  const grouped = folders.map(f => ({ name: f, items: activeWatched.filter(w => w.folder === f) }));
+
+  function toggleFolder(name) {
+    setCollapsedFolders(prev => ({ ...prev, [name]: !prev[name] }));
+  }
+
+  function renderItem(item) {
+    const isSorting = sorting === item.collection_id;
+    const hasOwn = !!item.collection_config;
+    return (
+      <ResourceItem id={item.collection_id} shortcutActions={[
+        { content:isSorting?"Sortira...":"Sortiraj", loading:isSorting, onAction:()=>runSort(item.collection_id, item.collection_title) },
+        { content:"Preview", onAction:()=>setPreviewModal({ collectionId: item.collection_id, title: item.collection_title }) },
+        { content:"Postavke", onAction:()=>setConfigModal(item.collection_id) },
+        { content:"Folder", onAction:()=>setFolderModal({ collectionId: item.collection_id, title: item.collection_title, currentFolder: item.folder || null }) },
+        { content:"Ukloni", destructive:true, onAction:()=>removeCollection(item.collection_id) },
+      ]}>
+        <HorizontalStack align="space-between" blockAlign="center">
+          <VerticalStack gap="100">
+            <HorizontalStack gap="200" blockAlign="center">
+              <Text fontWeight="semibold">{item.collection_title}</Text>
+              {hasOwn && <Badge tone="info">Vlastite postavke</Badge>}
+            </HorizontalStack>
+            <Text tone="subdued" variant="bodySm">
+              Zadnji sort: {item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : "Nikad"}
+            </Text>
+          </VerticalStack>
+          <Badge tone={item.last_sorted_at?"success":"attention"}>
+            {item.last_sorted_at?"Sortirano":"Čeka"}
+          </Badge>
+        </HorizontalStack>
+      </ResourceItem>
+    );
+  }
+
+  return (
+    <Card>
+      <VerticalStack gap="400">
+        <HorizontalStack align="space-between">
+          <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
+          <HorizontalStack gap="200">
+            <Button variant="plain" loading={addingAll} onClick={()=>setConfirmAddAll(true)}>+ Dodaj sve</Button>
+            <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
+          </HorizontalStack>
+        </HorizontalStack>
+
+        {activeWatched.length === 0 ? (
+          <EmptyState heading="Nema praćenih kolekcija" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">
+            <Button onClick={()=>setAddModal(true)}>Dodaj kolekciju</Button>
+          </EmptyState>
+        ) : (
+          <VerticalStack gap="400">
+            {/* Grouped folders */}
+            {grouped.map(({ name, items }) => (
+              <VerticalStack key={name} gap="0">
+                <button
+                  onClick={() => toggleFolder(name)}
+                  style={{ display:"flex", alignItems:"center", gap:"8px", width:"100%", background:"#f4f6f8", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", textAlign:"left", marginBottom: collapsedFolders[name] ? "0" : "8px" }}
+                >
+                  <span style={{ fontSize:"14px", fontWeight:600, color:"#202223", flex:1 }}>
+                    📁 {name} <span style={{ fontWeight:400, color:"#6d7175", fontSize:"12px" }}>({items.length})</span>
+                  </span>
+                  <span style={{ color:"#6d7175", fontSize:"12px" }}>{collapsedFolders[name] ? "▶" : "▼"}</span>
+                </button>
+                {!collapsedFolders[name] && (
+                  <ResourceList
+                    idForItem={(item) => item.collection_id}
+                    items={items}
+                    selectedItems={selectedCols}
+                    onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
+                    selectable
+                    promotedBulkActions={[{ content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) }]}
+                    bulkActions={[{ content:"Ukloni sve kolekcije", destructive:true, onAction:()=>bulkRemove(true) }]}
+                    renderItem={renderItem}
+                  />
+                )}
+              </VerticalStack>
+            ))}
+
+            {/* Ungrouped collections */}
+            {ungrouped.length > 0 && (
+              <VerticalStack gap="0">
+                {grouped.length > 0 && (
+                  <div style={{ fontSize:"12px", fontWeight:600, color:"#6d7175", padding:"4px 2px 6px", textTransform:"uppercase", letterSpacing:"0.5px" }}>
+                    Ostalo
+                  </div>
+                )}
+                <ResourceList
+                  idForItem={(item) => item.collection_id}
+                  items={ungrouped}
+                  selectedItems={selectedCols}
+                  onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
+                  selectable
+                  promotedBulkActions={[{ content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) }]}
+                  bulkActions={[{ content:"Ukloni sve kolekcije", destructive:true, onAction:()=>bulkRemove(true) }]}
+                  renderItem={renderItem}
+                />
+              </VerticalStack>
+            )}
+          </VerticalStack>
+        )}
+      </VerticalStack>
+    </Card>
   );
 }
 
