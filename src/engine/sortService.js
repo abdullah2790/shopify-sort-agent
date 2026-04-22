@@ -187,6 +187,32 @@ function autoAdaptConfig(scoredProducts, config) {
   const uToW = adWM > 0 ? Math.round(cnt.U * cnt.W / adWM) : Math.round(cnt.U / 2);
   const effW = cnt.W + uToW, effM = cnt.M + (cnt.U - uToW);
 
+  // Redistribute slots from types with 0 products evenly to active siblings in same group
+  // This runs on cfg copy — doesn't touch saved user config
+  const slotGroups = [
+    [{ key: "womenAdultsPerPage", n: effW }, { key: "menAdultsPerPage", n: effM }],
+    [{ key: "girlsPerPage", n: cnt.G }, { key: "boysPerPage", n: cnt.B }, { key: "babiesPerPage", n: cnt.BB }],
+    [{ key: "femaleAccessoriesPerPage", n: cnt.accW }, { key: "maleAccessoriesPerPage", n: cnt.accM }],
+  ];
+  for (const group of slotGroups) {
+    let again = true;
+    while (again) {
+      again = false;
+      for (const slot of group) {
+        if (slot.n > 0 || cfg[slot.key] === 0) continue;
+        const extra = cfg[slot.key];
+        const recv = group.filter(r => r.n > 0 && r !== slot);
+        if (!recv.length) continue;
+        cfg[slot.key] = 0;
+        again = true;
+        const perR = Math.floor(extra / recv.length);
+        const rem  = extra - perR * recv.length;
+        recv.sort((a, b) => cfg[b.key] - cfg[a.key]); // give remainder to largest
+        recv.forEach((r, i) => { cfg[r.key] += perR + (i === 0 ? rem : 0); });
+      }
+    }
+  }
+
   // Auto firstGender
   if (effW > 0 && effM === 0)       cfg.firstGender = "W";
   else if (effM > 0 && effW === 0)  cfg.firstGender = "M";
