@@ -240,13 +240,10 @@ function autoAdaptConfig(scoredProducts, config) {
   cfg.categoryGroups = autoDetectCategoryGroups(scoredProducts);
 
   // Auto penalties, jitter, relaxStep — derived from collection diversity + score spread
-  const _before = { penCat: cfg.penaltySameCategory, jitter: cfg.jitter };
   try {
-    const adapted = autoAdaptPenalties(scoredProducts);
-    Object.assign(cfg, adapted);
-    console.log("PENALTIES_OK penCat=" + _before.penCat + "->" + cfg.penaltySameCategory + " jitter=" + _before.jitter + "->" + cfg.jitter);
+    Object.assign(cfg, autoAdaptPenalties(scoredProducts));
   } catch(e) {
-    console.error("PENALTIES_FAIL err=" + e.message + " penCat stays=" + _before.penCat + " jitter stays=" + _before.jitter);
+    console.error("autoAdaptPenalties failed:", e.message);
   }
 
   return cfg;
