@@ -148,7 +148,7 @@ function autoAdaptConfig(scoredProducts, config) {
     if (p.isSprinkler) continue;
     const nc = normCat(p.category||"");
     const isAcc = ACC.has(nc);
-    const type = p.type||"";
+    const type = p.product_type||"";
     if (!isAcc) catCounts[nc] = (catCounts[nc]||0) + 1;
     if (isAcc) { if (type===M) cnt.accM++; else cnt.accW++; }
     else if (type===W) cnt.W++;
