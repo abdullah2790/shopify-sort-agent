@@ -244,9 +244,9 @@ function autoAdaptConfig(scoredProducts, config) {
   try {
     const adapted = autoAdaptPenalties(scoredProducts);
     Object.assign(cfg, adapted);
-    console.log(`   ↳ penalties OK: penCat ${_before.penCat}→${cfg.penaltySameCategory} jitter ${_before.jitter}→${cfg.jitter}`);
+    console.log("PENALTIES_OK penCat=" + _before.penCat + "->" + cfg.penaltySameCategory + " jitter=" + _before.jitter + "->" + cfg.jitter);
   } catch(e) {
-    console.error(`   ↳ penalties FAIL (penCat stays ${_before.penCat}, jitter stays ${_before.jitter}):`, e.message);
+    console.error("PENALTIES_FAIL err=" + e.message + " penCat stays=" + _before.penCat + " jitter stays=" + _before.jitter);
   }
 
   return cfg;
