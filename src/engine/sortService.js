@@ -23,6 +23,117 @@ function percentile(arr, p) {
 function normText(t) { return String(t||"").trim().toLowerCase().replace(/č/g,"c").replace(/ć/g,"c").replace(/š/g,"s").replace(/đ/g,"dj").replace(/ž/g,"z"); }
 function normCat(c) { const n=normText(c); if(n==="polo majica"||n==="polo majice")return "majice"; return n; }
 
+function autoDetectColorGroups(scoredProducts) {
+  const FAMILIES = [
+    { name: "Plava",       roots: ["plav", "navy", "royal", "indigo", "cobalt", "teal", "tirkiz", "blue", "azur"] },
+    { name: "Crna",        roots: ["crn", "black", "ebony", "onyx"] },
+    { name: "Bijela",      roots: ["bijel", "white", "cream", "ivory", "offwhite", "off white", "ecru"] },
+    { name: "Siva",        roots: ["siv", "grey", "gray", "charcoal", "melan", "antracit"] },
+    { name: "Crvena",      roots: ["crven", "red", "burgund", "bordo", "wine", "vino", "rust", "coral"] },
+    { name: "Zelena",      roots: ["zelen", "green", "olive", "maslinat", "khaki", "sage", "hunter", "army"] },
+    { name: "Smeđa",       roots: ["smed", "brown", "camel", "tan ", "caramel", "karamel", "mocha", "hazel", "cognac"] },
+    { name: "Žuta",        roots: ["zut", "yellow", "mustard", "senf", "gold"] },
+    { name: "Roze",        roots: ["roz", "pink", "mauve", "blush", "salmon", "losos"] },
+    { name: "Ljubičasta",  roots: ["ljubic", "purple", "violet", "lavender", "lilac"] },
+    { name: "Narandžasta", roots: ["naranz", "orange", "terracotta", "apricot", "breskva"] },
+  ];
+  const originals = {};
+  for (const p of scoredProducts) {
+    if (p.isSprinkler || !p.color) continue;
+    const nc = normText(p.color);
+    if (!originals[nc]) originals[nc] = p.color;
+  }
+  const groups = [];
+  const assigned = new Set();
+  for (const fam of FAMILIES) {
+    const matched = Object.keys(originals).filter(nc => !assigned.has(nc) && fam.roots.some(r => nc.includes(r)));
+    if (matched.length >= 2) {
+      groups.push({ name: fam.name, colors: matched.map(nc => originals[nc]) });
+      matched.forEach(nc => assigned.add(nc));
+    }
+  }
+  return groups;
+}
+
+function autoDetectCategoryGroups(scoredProducts) {
+  const FAMILIES = [
+    { name: "Pantalone",  norms: ["farmerke", "pantalone", "hlace", "bermude", "teksas hlace", "teksas pantalone", "cargo pantalone"] },
+    { name: "Jakne",      norms: ["jakne", "jakna", "kaput", "kaputi", "vjetrovke", "vjetrovka", "kišne jakne", "pernate jakne", "softshell"] },
+    { name: "Dukserice",  norms: ["dukserice", "duksevi", "duks", "hoodie", "sweatshirt"] },
+    { name: "Majice",     norms: ["majice", "majica"] },
+    { name: "Džemperi",   norms: ["dzemperi", "dzemper", "pulover", "puloveri", "kardigan", "kardigani"] },
+    { name: "Trenerke",   norms: ["trenerke", "trenerka", "jogging", "sport hlace", "sportske hlace"] },
+  ];
+  const originals = {};
+  for (const p of scoredProducts) {
+    if (p.isSprinkler || !p.category) continue;
+    const nc = normCat(p.category);
+    if (!originals[nc]) originals[nc] = p.category;
+  }
+  const existing = new Set(Object.keys(originals));
+  const groups = [];
+  const assigned = new Set();
+  for (const fam of FAMILIES) {
+    const matched = fam.norms.filter(nc => existing.has(nc) && !assigned.has(nc));
+    if (matched.length >= 2) {
+      groups.push({ name: fam.name, categories: matched.map(nc => originals[nc]) });
+      matched.forEach(nc => assigned.add(nc));
+    }
+  }
+  return groups;
+}
+
+function autoAdaptPenalties(scoredProducts) {
+  const non = scoredProducts.filter(p => !p.isSprinkler);
+  const total = non.length || 1;
+  const catCounts = {};
+  const colorCounts = {};
+  for (const p of non) {
+    const nc = normCat(p.category || "");
+    catCounts[nc] = (catCounts[nc] || 0) + 1;
+    const cl = normText(p.color || "unknown");
+    colorCounts[cl] = (colorCounts[cl] || 0) + 1;
+  }
+  const topCatRatio   = Math.max(...Object.values(catCounts),   0) / total;
+  const topColorRatio = Math.max(...Object.values(colorCounts), 0) / total;
+  const scores = non.map(p => p.score || 0).filter(s => s >= 0);
+  const scoreRange = scores.length ? Math.max(...scores) - Math.min(...scores) : 0;
+
+  // category penalty multiplier
+  let cm = topCatRatio > 0.50 ? 1.6 : topCatRatio > 0.35 ? 1.3 : topCatRatio < 0.15 ? 0.8 : 1.0;
+  // color penalty multiplier
+  let lm = topColorRatio > 0.50 ? 1.5 : topColorRatio > 0.35 ? 1.25 : topColorRatio < 0.15 ? 0.8 : 1.0;
+
+  const r = (v, m) => Math.round(v * m * 10) / 10;
+
+  // jitter: compressed scores → more jitter for variety; wide range → less (preserve ranking)
+  const jitter = scoreRange < 1.5 ? 0.40 : scoreRange < 3 ? 0.30 : scoreRange < 5 ? 0.22 : 0.15;
+
+  // relaxStep: small collection or few categories → relax faster to fill slots
+  const uniqueCats = Object.keys(catCounts).length;
+  const relaxStep  = total < 40 ? 0.72 : total < 80 ? 0.76 : uniqueCats < 4 ? 0.75 : 0.80;
+
+  return {
+    penaltySameCategory:    Math.max(12, r(14,  cm)),
+    penaltySameColor:       Math.max(8,  r(10,  lm)),
+    penaltySameType:        5,
+    penaltyInLast2Category: r(7,   cm),
+    penaltyInLast2Color:    r(5,   lm),
+    penaltyInLast2Type:     2,
+    penaltyInLast3Category: r(3,   cm),
+    penaltyInLast3Color:    r(2,   lm),
+    penaltyInLast3Type:     0.8,
+    penaltyInLast4Category: r(1.5, cm),
+    penaltyInLast4Color:    r(1.0, lm),
+    penaltyInLast4Type:     0.3,
+    penaltyInLast5Category: r(0.5, cm),
+    penaltyInLast5Color:    r(0.3, lm),
+    penaltyInLast5Type:     0.1,
+    jitter,
+    relaxStep,
+  };
+}
+
 function autoAdaptConfig(scoredProducts, config) {
   const cfg = { ...config };
   const W = cfg.womenType||"Žene", M = cfg.menType||"Muškarci", U = cfg.unisexType||"Unisex";
@@ -112,14 +223,24 @@ function autoAdaptConfig(scoredProducts, config) {
   else if (effM > effW * 2)         cfg.firstGender = "M";
   else                              cfg.firstGender = "auto";
 
-  // Auto minCategoryGap — ako jedna kategorija dominira, poveći gap
-  if ((cfg.minCategoryGap || 0) === 0) {
+  // Auto minCategoryGap — derived from top category dominance
+  {
     const total = Object.values(catCounts).reduce((s,v)=>s+v,0) || 1;
     const topRatio = Math.max(...Object.values(catCounts), 0) / total;
-    if (topRatio > 0.4)      cfg.minCategoryGap = 6;
+    if (topRatio > 0.4)       cfg.minCategoryGap = 6;
     else if (topRatio > 0.25) cfg.minCategoryGap = 4;
     else if (topRatio > 0.15) cfg.minCategoryGap = 3;
+    else                      cfg.minCategoryGap = 0;
   }
+
+  // Auto color groups — detect families present in this collection
+  cfg.colorGroups = autoDetectColorGroups(scoredProducts);
+
+  // Auto category groups — detect families present in this collection
+  cfg.categoryGroups = autoDetectCategoryGroups(scoredProducts);
+
+  // Auto penalties, jitter, relaxStep — derived from collection diversity + score spread
+  Object.assign(cfg, autoAdaptPenalties(scoredProducts));
 
   return cfg;
 }
@@ -193,7 +314,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
 
     const scored = calculateScores(products, categoryScores, rangOverride, config);
     const adaptedConfig = autoAdaptConfig(scored, config);
-    console.log(`🔧 [${shopDomain}/${collectionId}] Auto-adapt: Ž${adaptedConfig.womenAdultsPerPage} M${adaptedConfig.menAdultsPerPage} G${adaptedConfig.girlsPerPage} B${adaptedConfig.boysPerPage} BB${adaptedConfig.babiesPerPage} first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap}`);
+    console.log(`🔧 [${shopDomain}/${collectionId}] slots: Ž${adaptedConfig.womenAdultsPerPage} M${adaptedConfig.menAdultsPerPage} G${adaptedConfig.girlsPerPage} B${adaptedConfig.boysPerPage} BB${adaptedConfig.babiesPerPage} first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} catGroups=${adaptedConfig.categoryGroups.length} colorGroups=${adaptedConfig.colorGroups.length}`);
     const sorted = sortProducts(scored, adaptedConfig);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
