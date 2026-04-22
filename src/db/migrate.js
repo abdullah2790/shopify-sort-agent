@@ -1,7 +1,6 @@
 require("dotenv").config();
 const { Pool } = require("pg");
-const ssl = process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false };
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false });
 
 async function migrate() {
   const client = await pool.connect();
@@ -61,6 +60,16 @@ async function migrate() {
     await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_sprinkler BOOLEAN DEFAULT FALSE;`);
 
     await client.query(`ALTER TABLE watched_collections ADD COLUMN IF NOT EXISTS folder VARCHAR(100) DEFAULT NULL;`);
+
+    await client.query(`CREATE TABLE IF NOT EXISTS product_sales (
+      id SERIAL PRIMARY KEY,
+      shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+      product_id VARCHAR(50) NOT NULL,
+      sales_30d INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(shop_id, product_id)
+    );`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_product_sales_shop ON product_sales(shop_id);`);
 
     await client.query(`ALTER TABLE shop_configs ADD COLUMN IF NOT EXISTS weather_config JSONB DEFAULT NULL;`);
 

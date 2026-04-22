@@ -1260,7 +1260,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
 
   const pageTotal = (cfg.womenAdultsPerPage||0) + (cfg.menAdultsPerPage||0) + (cfg.girlsPerPage||0) + (cfg.boysPerPage||0) + (cfg.babiesPerPage||0) + (cfg.maleAccessoriesPerPage||0) + (cfg.femaleAccessoriesPerPage||0);
   const pageTotalValid = pageTotal === 24;
-  const weightSum = (cfg.scoreWeightCategory||0) + (cfg.scoreWeightVariants||0) + (cfg.scoreWeightInventory||0);
+  const weightSum = (cfg.scoreWeightCategory||0) + (cfg.scoreWeightVariants||0) + (cfg.scoreWeightInventory||0) + (cfg.scoreWeightSales||0);
   const weightsValid = weightSum === 100;
   const prevValidRef = useRef(true);
   useEffect(() => {
@@ -1727,6 +1727,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
                 { label:"Score (kategorija)", wKey:"scoreWeightCategory" },
                 { label:"Varijante",          wKey:"scoreWeightVariants" },
                 { label:"Zalihe",             wKey:"scoreWeightInventory" },
+                { label:"Prodaja (30d)",      wKey:"scoreWeightSales" },
               ].map((row,i) => (
                 <tr key={row.label} style={{background:i%2===0?"#fafbfb":"white",borderBottom:"1px solid #f1f2f3"}}>
                   <td style={{padding:"8px 12px",fontWeight:500}}>{row.label}</td>

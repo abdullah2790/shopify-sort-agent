@@ -68,6 +68,7 @@ module.exports = {
   scoreWeightCategory : 65,
   scoreWeightVariants : 25,
   scoreWeightInventory: 10,
+  scoreWeightSales    : 0,   // prodaja zadnjih 30 dana — 0 = isključeno
   variantPercentile   : 95,
   inventoryPercentile : 95,
   categoryScores: {

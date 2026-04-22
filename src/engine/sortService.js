@@ -1,6 +1,7 @@
 const { getCollectionProducts, updateCollectionProductPositions } = require("../api/shopifyClient");
 const { sortProducts } = require("./sorter");
 const { getCategoryScoresForSort } = require("./categoryService");
+const { syncSales, getSalesMap } = require("./salesService");
 const db = require("../db");
 const DEFAULTS = require("../../config/defaults");
 
@@ -32,12 +33,14 @@ function extractCategory(p) {
   return String(p.product_type || "").trim();
 }
 
-function calculateScores(products, categoryScores = {}, rangOverride = null, config = {}) {
+function calculateScores(products, categoryScores = {}, rangOverride = null, config = {}, salesMap = {}) {
   const rang = rangOverride || getCurrentRang();
   const variantCounts   = products.map(p => p.variants?.length || 0);
   const inventoryCounts = products.map(p => (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0));
-  const p95Var = percentile(variantCounts,   config.variantPercentile   ?? 95);
-  const p95Inv = percentile(inventoryCounts, config.inventoryPercentile ?? 95);
+  const salesCounts     = products.map(p => salesMap[p.id] || 0);
+  const p95Var  = percentile(variantCounts,   config.variantPercentile   ?? 95);
+  const p95Inv  = percentile(inventoryCounts, config.inventoryPercentile ?? 95);
+  const p95Sale = percentile(salesCounts.filter(s => s > 0), 95) || 1;
 
   return products.map(p => {
     const tags = (p.tags || "").toLowerCase().split(",").map(t => t.trim());
@@ -46,18 +49,26 @@ function calculateScores(products, categoryScores = {}, rangOverride = null, con
     const category = extractCategory(p);
     const catInfo = categoryScores[category] || {};
     if (catInfo.isSprinkler) return { ...p, category, score: -1, isSprinkler: true };
-    const catScore = catInfo[rang] ?? 5;
+    const catScore  = catInfo[rang] ?? 5;
     const variants  = p.variants?.length || 0;
     const inventory = (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0);
-    const varScore = Math.min(variants,  p95Var) / Math.max(p95Var, 1);
-    const invScore = Math.min(inventory, p95Inv) / Math.max(p95Inv, 1);
-    const rawCat = config.scoreWeightCategory ?? 65;
-    const rawVar = config.scoreWeightVariants  ?? 25;
-    const rawInv = config.scoreWeightInventory ?? 10;
-    const wCat = rawCat <= 1 ? rawCat : rawCat / 100;
-    const wVar = rawVar <= 1 ? rawVar : rawVar / 100;
-    const wInv = rawInv <= 1 ? rawInv : rawInv / 100;
-    const score = parseFloat((12 * (((catScore - 1) / 9) * wCat + varScore * wVar + invScore * wInv)).toFixed(1));
+    const sales     = salesMap[p.id] || 0;
+
+    const varScore  = Math.min(variants,  p95Var)  / Math.max(p95Var,  1);
+    const invScore  = Math.min(inventory, p95Inv)  / Math.max(p95Inv,  1);
+    const saleScore = Math.min(sales,     p95Sale) / Math.max(p95Sale, 1);
+
+    const rawCat  = config.scoreWeightCategory ?? 65;
+    const rawVar  = config.scoreWeightVariants  ?? 25;
+    const rawInv  = config.scoreWeightInventory ?? 10;
+    const rawSale = config.scoreWeightSales     ?? 0;
+    const total   = rawCat + rawVar + rawInv + rawSale || 100;
+    const wCat  = rawCat  / total;
+    const wVar  = rawVar  / total;
+    const wInv  = rawInv  / total;
+    const wSale = rawSale / total;
+
+    const score = parseFloat((12 * (((catScore - 1) / 9) * wCat + varScore * wVar + invScore * wInv + saleScore * wSale)).toFixed(1));
 
     return { ...p, category, score, isSprinkler: false };
   });
@@ -82,13 +93,15 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
   try {
     const config = mergeConfig(shopConfig, collectionConfig);
 
-    // Dohvati kategorije iz baze
-    const categoryScores = await getCategoryScoresForSort(shopId);
+    const [categoryScores, salesMap] = await Promise.all([
+      getCategoryScoresForSort(shopId),
+      (async () => { await syncSales(shopId, shopDomain, accessToken); return getSalesMap(shopId); })(),
+    ]);
 
     const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
     if (!products.length) return log(shopId, collectionId, trigger, 0, Date.now()-start, "success");
 
-    const scored = calculateScores(products, categoryScores, rangOverride, config);
+    const scored = calculateScores(products, categoryScores, rangOverride, config, salesMap);
     const sorted = sortProducts(scored, config);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
@@ -124,10 +137,13 @@ async function runSortAllCollections({ shopId, shopDomain, accessToken, shopConf
 async function runSortPreview({ shopId, shopDomain, accessToken, collectionId, shopConfig = {}, collectionConfig = null, rangOverride = null }) {
   const config = mergeConfig(shopConfig, collectionConfig);
   const rang = rangOverride || getCurrentRang();
-  const categoryScores = await getCategoryScoresForSort(shopId);
+  const [categoryScores, salesMap] = await Promise.all([
+    getCategoryScoresForSort(shopId),
+    getSalesMap(shopId),
+  ]);
   const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
   if (!products.length) return { rang, total: 0, products: [] };
-  const scored = calculateScores(products, categoryScores, rangOverride, config);
+  const scored = calculateScores(products, categoryScores, rangOverride, config, salesMap);
   const sorted = sortProducts(scored, config);
   const titleMap = new Map(scored.map(p => [p.id, { title: p.title, color: p.color }]));
   return {
