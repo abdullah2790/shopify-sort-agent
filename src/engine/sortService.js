@@ -113,7 +113,6 @@ function autoAdaptPenalties(scoredProducts) {
   const uniqueCats = Object.keys(catCounts).length;
   const relaxStep  = total < 40 ? 0.72 : total < 80 ? 0.76 : uniqueCats < 4 ? 0.75 : 0.80;
 
-  console.log(`   ↳ adapt-penalties: n=${total} topCat=${topCatRatio.toFixed(2)} topColor=${topColorRatio.toFixed(2)} scoreRange=${scoreRange.toFixed(1)} → cm=${cm} lm=${lm} jitter=${jitter} relax=${relaxStep}`);
   return {
     penaltySameCategory:    Math.max(12, r(14,  cm)),
     penaltySameColor:       Math.max(8,  r(10,  lm)),
@@ -241,11 +240,13 @@ function autoAdaptConfig(scoredProducts, config) {
   cfg.categoryGroups = autoDetectCategoryGroups(scoredProducts);
 
   // Auto penalties, jitter, relaxStep — derived from collection diversity + score spread
+  const _before = { penCat: cfg.penaltySameCategory, jitter: cfg.jitter };
   try {
     const adapted = autoAdaptPenalties(scoredProducts);
     Object.assign(cfg, adapted);
+    console.log(`   ↳ penalties OK: penCat ${_before.penCat}→${cfg.penaltySameCategory} jitter ${_before.jitter}→${cfg.jitter}`);
   } catch(e) {
-    console.error("❌ autoAdaptPenalties error:", e.message, e.stack);
+    console.error(`   ↳ penalties FAIL (penCat stays ${_before.penCat}, jitter stays ${_before.jitter}):`, e.message);
   }
 
   return cfg;
