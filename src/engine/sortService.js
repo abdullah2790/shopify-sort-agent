@@ -140,12 +140,29 @@ function autoAdaptPenalties(scoredProducts) {
   };
 }
 
+function autoDetectFallbacks(cnt) {
+  const counts = { women: cnt.W, men: cnt.M, unisex: cnt.U, girls: cnt.G, boys: cnt.B, babies: cnt.BB };
+  // Build fallback list: siblings ordered by count desc, then rest ordered by count desc, always end with "other"
+  function build(siblings, rest) {
+    const ord = (arr) => arr.filter(t => counts[t] > 0).sort((a, b) => counts[b] - counts[a]);
+    return [...ord(siblings), ...ord(rest), "other"];
+  }
+  return {
+    women:  build(["unisex"],          ["men", "girls", "boys", "babies"]),
+    men:    build(["unisex"],          ["women", "boys", "girls", "babies"]),
+    girls:  build(["boys", "babies"],  ["women", "unisex", "men"]),
+    boys:   build(["girls", "babies"], ["men", "unisex", "women"]),
+    babies: build(["girls", "boys"],   ["women", "men", "unisex"]),
+    accW:   build(["women", "unisex"], ["men"]),
+    accM:   build(["men",   "unisex"], ["women"]),
+  };
+}
+
 function autoAdaptConfig(scoredProducts, config) {
   const cfg = { ...config };
   const W = cfg.womenType||"Žene", M = cfg.menType||"Muškarci", U = cfg.unisexType||"Unisex";
   const G = cfg.girlsType||"Djevojčice", B = cfg.boysType||"Dječaci", BB = cfg.babyType||"Bebe";
   const ACC = new Set((cfg.accessoryCategories||[]).map(normCat));
-  const PAGE = 24;
 
   const cnt = { W:0, M:0, U:0, G:0, B:0, BB:0, accW:0, accM:0 };
   const catCounts = {};
@@ -165,62 +182,10 @@ function autoAdaptConfig(scoredProducts, config) {
     else if (type===BB) cnt.BB++;
   }
 
-  // Unisex rasporedi proporcionalno između W i M
+  // Unisex split proportionally for firstGender determination
   const adWM = cnt.W + cnt.M;
   const uToW = adWM > 0 ? Math.round(cnt.U * cnt.W / adWM) : Math.round(cnt.U / 2);
-  const uToM = cnt.U - uToW;
-  const effW = cnt.W + uToW, effM = cnt.M + uToM;
-  const adults = effW + effM;
-  const kids = cnt.G + cnt.B + cnt.BB;
-  const accs = cnt.accW + cnt.accM;
-  const nonAcc = adults + kids;
-  if (nonAcc === 0) return cfg;
-
-  // Acc slotovi (max 6, proporcionalni)
-  let accSlots = accs > 0 ? Math.min(6, Math.round(PAGE * accs / (nonAcc + accs))) : 0;
-  const main = PAGE - accSlots;
-
-  // Adults vs kids
-  let adultSlots = adults > 0 && kids > 0 ? Math.round(main * adults / nonAcc) : adults > 0 ? main : 0;
-  let kidsSlots  = main - adultSlots;
-
-  // W vs M
-  let wSlots = effW > 0 && effM > 0 ? Math.round(adultSlots * effW / adults) : effW > 0 ? adultSlots : 0;
-  let mSlots = adultSlots - wSlots;
-
-  // G, B, BB
-  const kt = kids || 1;
-  let gSlots  = cnt.G  > 0 ? Math.round(kidsSlots * cnt.G  / kt) : 0;
-  let bSlots  = cnt.B  > 0 ? Math.round(kidsSlots * cnt.B  / kt) : 0;
-  let bbSlots = cnt.BB > 0 ? kidsSlots - gSlots - bSlots : 0;
-  if (bbSlots < 0) { bbSlots = 0; bSlots = kidsSlots - gSlots; }
-
-  // AccW vs AccM
-  let accWSlots = accs > 0 ? Math.round(accSlots * cnt.accW / accs) : 0;
-  let accMSlots = accSlots - accWSlots;
-
-  // Koriguj zaokruživanje da suma bude tačno 24
-  const sum = wSlots + mSlots + gSlots + bSlots + bbSlots + accWSlots + accMSlots;
-  const diff = PAGE - sum;
-  if (diff !== 0) {
-    const candidates = [{k:"w",v:wSlots},{k:"m",v:mSlots},{k:"g",v:gSlots},{k:"b",v:bSlots},{k:"bb",v:bbSlots}]
-      .filter(s=>s.v>0).sort((a,b)=>b.v-a.v);
-    if (candidates.length) {
-      if (candidates[0].k==="w") wSlots+=diff;
-      else if (candidates[0].k==="m") mSlots+=diff;
-      else if (candidates[0].k==="g") gSlots+=diff;
-      else if (candidates[0].k==="b") bSlots+=diff;
-      else bbSlots+=diff;
-    }
-  }
-
-  cfg.womenAdultsPerPage        = Math.max(0, wSlots);
-  cfg.menAdultsPerPage          = Math.max(0, mSlots);
-  cfg.girlsPerPage              = Math.max(0, gSlots);
-  cfg.boysPerPage               = Math.max(0, bSlots);
-  cfg.babiesPerPage             = Math.max(0, bbSlots);
-  cfg.femaleAccessoriesPerPage  = Math.max(0, accWSlots);
-  cfg.maleAccessoriesPerPage    = Math.max(0, accMSlots);
+  const effW = cnt.W + uToW, effM = cnt.M + (cnt.U - uToW);
 
   // Auto firstGender
   if (effW > 0 && effM === 0)       cfg.firstGender = "W";
@@ -244,6 +209,9 @@ function autoAdaptConfig(scoredProducts, config) {
 
   // Auto category groups — detect families present in this collection
   cfg.categoryGroups = autoDetectCategoryGroups(scoredProducts);
+
+  // Auto fallbacks — ordered by actual product availability in this collection
+  cfg.fallbacks = autoDetectFallbacks(cnt);
 
   // Auto penalties, jitter, relaxStep — derived from collection diversity + score spread
   try {
@@ -324,7 +292,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
 
     const scored = calculateScores(products, categoryScores, rangOverride, config);
     const adaptedConfig = autoAdaptConfig(scored, config);
-    console.log(`🔧 [${shopDomain}/${collectionId}] slots: Ž${adaptedConfig.womenAdultsPerPage} M${adaptedConfig.menAdultsPerPage} G${adaptedConfig.girlsPerPage} B${adaptedConfig.boysPerPage} BB${adaptedConfig.babiesPerPage} first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} catGroups=${adaptedConfig.categoryGroups.length} colorGroups=${adaptedConfig.colorGroups.length}`);
+    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} catGrp=${adaptedConfig.categoryGroups.length} colorGrp=${adaptedConfig.colorGroups.length} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
     const sorted = sortProducts(scored, adaptedConfig);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
