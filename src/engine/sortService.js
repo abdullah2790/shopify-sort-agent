@@ -31,7 +31,7 @@ function autoDetectColorGroups(scoredProducts) {
     { name: "Siva",        roots: ["siv", "grey", "gray", "charcoal", "melan", "antracit"] },
     { name: "Crvena",      roots: ["crven", "red", "burgund", "bordo", "wine", "vino", "rust", "coral"] },
     { name: "Zelena",      roots: ["zelen", "green", "olive", "maslinat", "khaki", "sage", "hunter", "army"] },
-    { name: "Smeđa",       roots: ["smed", "brown", "camel", "tan ", "caramel", "karamel", "mocha", "hazel", "cognac"] },
+    { name: "Smeđa",       roots: ["smed", "brown", "camel", "tan", "caramel", "karamel", "mocha", "hazel", "cognac"] },
     { name: "Žuta",        roots: ["zut", "yellow", "mustard", "senf", "gold"] },
     { name: "Roze",        roots: ["roz", "pink", "mauve", "blush", "salmon", "losos"] },
     { name: "Ljubičasta",  roots: ["ljubic", "purple", "violet", "lavender", "lilac"] },
@@ -58,7 +58,7 @@ function autoDetectColorGroups(scoredProducts) {
 function autoDetectCategoryGroups(scoredProducts) {
   const FAMILIES = [
     { name: "Pantalone",  norms: ["farmerke", "pantalone", "hlace", "bermude", "teksas hlace", "teksas pantalone", "cargo pantalone"] },
-    { name: "Jakne",      norms: ["jakne", "jakna", "kaput", "kaputi", "vjetrovke", "vjetrovka", "kišne jakne", "pernate jakne", "softshell"] },
+    { name: "Jakne",      norms: ["jakne", "jakna", "kaput", "kaputi", "vjetrovke", "vjetrovka", "kisne jakne", "pernate jakne", "softshell"] },
     { name: "Dukserice",  norms: ["dukserice", "duksevi", "duks", "hoodie", "sweatshirt"] },
     { name: "Majice",     norms: ["majice", "majica"] },
     { name: "Džemperi",   norms: ["dzemperi", "dzemper", "pulover", "puloveri", "kardigan", "kardigani"] },
@@ -95,13 +95,19 @@ function autoAdaptPenalties(scoredProducts) {
     colorCounts[cl] = (colorCounts[cl] || 0) + 1;
   }
   const topCatRatio   = Math.max(...Object.values(catCounts),   0) / total;
-  const topColorRatio = Math.max(...Object.values(colorCounts), 0) / total;
+  // Exclude "unknown" (products without color data) from color dominance check
+  const realColorCounts = Object.fromEntries(Object.entries(colorCounts).filter(([k]) => k !== "unknown"));
+  const realColorTotal  = Object.values(realColorCounts).reduce((s, v) => s + v, 0);
+  const hasColorData    = realColorTotal / total > 0.3; // at least 30% of products have color
+  const topColorRatio   = hasColorData
+    ? Math.max(...Object.values(realColorCounts), 0) / realColorTotal
+    : 0.15; // no color data → neutral multiplier
   const scores = non.map(p => p.score || 0).filter(s => s >= 0);
   const scoreRange = scores.length ? Math.max(...scores) - Math.min(...scores) : 0;
 
   // category penalty multiplier
   let cm = topCatRatio > 0.50 ? 1.6 : topCatRatio > 0.35 ? 1.3 : topCatRatio < 0.15 ? 0.8 : 1.0;
-  // color penalty multiplier
+  // color penalty multiplier (neutral if no color data)
   let lm = topColorRatio > 0.50 ? 1.5 : topColorRatio > 0.35 ? 1.25 : topColorRatio < 0.15 ? 0.8 : 1.0;
 
   const r = (v, m) => Math.round(v * m * 10) / 10;
