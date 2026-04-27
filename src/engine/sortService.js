@@ -179,15 +179,7 @@ function autoAdaptConfig(scoredProducts, config) {
     console.log(`👶 [kids-only] grid: girls=8 boys=8 accF=2 accM=2 babies=2`);
   }
 
-  // Auto minCategoryGap — derived from top category dominance
-  {
-    const total = Object.values(catCounts).reduce((s,v)=>s+v,0) || 1;
-    const topRatio = Math.max(...Object.values(catCounts), 0) / total;
-    if (topRatio > 0.4)       cfg.minCategoryGap = 6;
-    else if (topRatio > 0.25) cfg.minCategoryGap = 4;
-    else if (topRatio > 0.15) cfg.minCategoryGap = 3;
-    else                      cfg.minCategoryGap = 0;
-  }
+  cfg.minCategoryGap = 0;
 
   // Auto fallbacks — ordered by actual product availability in this collection
   cfg.fallbacks = autoDetectFallbacks(cnt);
@@ -271,7 +263,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
 
     const scored = calculateScores(products, categoryScores, rangOverride, config);
     const adaptedConfig = autoAdaptConfig(scored, config);
-    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} penType=${adaptedConfig.penaltySameType} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
+    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} penType=${adaptedConfig.penaltySameType} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
     const sorted = sortProducts(scored, adaptedConfig);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
