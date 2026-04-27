@@ -312,7 +312,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
 
     const scored = calculateScores(products, categoryScores, rangOverride, config);
     const adaptedConfig = autoAdaptConfig(scored, config);
-    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} catGrp=${adaptedConfig.categoryGroups.length} colorGrp=${adaptedConfig.colorGroups.length} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
+    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} penType=${adaptedConfig.penaltySameType} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} catGrp=${adaptedConfig.categoryGroups.length} colorGrp=${adaptedConfig.colorGroups.length} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
     const sorted = sortProducts(scored, adaptedConfig);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);
