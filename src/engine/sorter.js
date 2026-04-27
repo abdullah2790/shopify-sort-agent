@@ -79,8 +79,9 @@ function sortProducts(products, config={}) {
     commit(P.other,it);
   }
   // W i M imaju odvojene poolove I odvojene pointere — svaki gender rotira nezavisno
-  const ACC_POOLS_W=[P.sprAccW,P.accW,P.sprAccU,P.accU,P.sprAccKids,P.accKids]; // kids aksesoari kao fallback
-  const ACC_POOLS_M=[P.sprAccM,P.accM,P.accKids];
+  const isKidsOnly = cfg.womenAdultsPerPage === 0 && cfg.menAdultsPerPage === 0 && (cfg.girlsPerPage > 0 || cfg.boysPerPage > 0);
+  const ACC_POOLS_W = isKidsOnly ? [P.sprAccW,P.accW,P.sprAccU,P.accU,P.sprAccKids,P.accKids] : [P.sprAccW,P.accW,P.sprAccU,P.accU];
+  const ACC_POOLS_M = isKidsOnly ? [P.sprAccM,P.accM,P.accKids] : [P.sprAccM,P.accM];
 
   let accCatPtrW=0; // rotacija kategorija za ženski slot
   let accCatPtrM=0; // rotacija kategorija za muški slot
