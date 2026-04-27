@@ -94,9 +94,9 @@ function autoDetectFallbacks(cnt) {
   return {
     women:  build(["unisex"], ["men", "other"]),
     men:    build(["unisex"], ["women", "other"]),
-    girls:  build(["boys", "babies"],  ["women", "unisex", "men"]),
-    boys:   build(["girls", "babies"], ["men", "unisex", "women"]),
-    babies: build(["girls", "boys"],   ["women", "men", "unisex"]),
+    girls:  [...build(["boys", "babies"], []), "women", "men", "other"].filter((v,i,a)=>a.indexOf(v)===i),
+    boys:   [...build(["girls", "babies"], []), "men", "women", "other"].filter((v,i,a)=>a.indexOf(v)===i),
+    babies: [...build(["girls", "boys"], []), "women", "men", "other"].filter((v,i,a)=>a.indexOf(v)===i),
     accW:   build(["women", "unisex"], ["men"]),
     accM:   build(["men",   "unisex"], ["women"]),
   };
