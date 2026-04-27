@@ -92,8 +92,8 @@ function autoDetectFallbacks(cnt) {
     return [...ord(siblings), ...ord(rest), "other"];
   }
   return {
-    women:  build(["unisex"],          ["men", "girls", "boys", "babies"]),
-    men:    build(["unisex"],          ["women", "boys", "girls", "babies"]),
+    women:  build(["unisex"], ["other"]),           // ne pada na muske
+    men:    build(["unisex"], ["other"]),            // ne pada na zenske
     girls:  build(["boys", "babies"],  ["women", "unisex", "men"]),
     boys:   build(["girls", "babies"], ["men", "unisex", "women"]),
     babies: build(["girls", "boys"],   ["women", "men", "unisex"]),
