@@ -103,8 +103,7 @@ app.post("/webhooks/products-update", async (req, res) => {
   const { secret: s2 } = getCredentials(2);
   if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2)) return res.status(401).send("Unauthorized");
   res.status(200).send("OK");
-  const s = await getShop(shop).catch(()=>null);
-  if (s) syncCategories(shop, s.access_token, s.id).catch(console.error);
+  // Ne syncaj kategorije na products/update — sort triggeruje ovaj webhook za svaki proizvod
 });
 
 // ── Kolekcije ──────────────────────────────────────────────────────────────
