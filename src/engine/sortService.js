@@ -131,54 +131,35 @@ function autoAdaptConfig(scoredProducts, config) {
   const uToW = adWM > 0 ? Math.round(cnt.U * cnt.W / adWM) : Math.round(cnt.U / 2);
   const effW = cnt.W + uToW, effM = cnt.M + (cnt.U - uToW);
 
-  // Redistribute slots from types with 0 products evenly to active siblings in same group
-  // This runs on cfg copy — doesn't touch saved user config
-  const slotGroups = [
-    [{ key: "womenAdultsPerPage", n: effW }, { key: "menAdultsPerPage", n: effM }],
-    [{ key: "girlsPerPage", n: cnt.G }, { key: "boysPerPage", n: cnt.B }, { key: "babiesPerPage", n: cnt.BB }],
-    [{ key: "femaleAccessoriesPerPage", n: cnt.accW }, { key: "maleAccessoriesPerPage", n: cnt.accM }],
-  ];
-  for (const group of slotGroups) {
-    let again = true;
-    while (again) {
-      again = false;
-      for (const slot of group) {
-        if (slot.n > 0 || cfg[slot.key] === 0) continue;
-        const extra = cfg[slot.key];
-        const recv = group.filter(r => r.n > 0 && r !== slot);
-        if (!recv.length) continue;
-        cfg[slot.key] = 0;
-        again = true;
-        const perR = Math.floor(extra / recv.length);
-        const rem  = extra - perR * recv.length;
-        recv.sort((a, b) => cfg[b.key] - cfg[a.key]); // give remainder to largest
-        recv.forEach((r, i) => { cfg[r.key] += perR + (i === 0 ? rem : 0); });
-      }
-    }
+  // Redistribucija slotova bez proizvoda
+  // Odrasli: ako nema žena → slotovi idu na muškarce i obrnuto
+  if (effW === 0 && cfg.womenAdultsPerPage > 0 && effM > 0) {
+    cfg.menAdultsPerPage += cfg.womenAdultsPerPage;
+    cfg.womenAdultsPerPage = 0;
+  }
+  if (effM === 0 && cfg.menAdultsPerPage > 0 && effW > 0) {
+    cfg.womenAdultsPerPage += cfg.menAdultsPerPage;
+    cfg.menAdultsPerPage = 0;
   }
 
-  // Drugi prolaz: orphaned non-adult slotovi → proporcionalno na Ž i M prema broju proizvoda
-  if (effW > 0 || effM > 0) {
-    const nonAdult = [
-      { key: "girlsPerPage",             n: cnt.G    },
-      { key: "boysPerPage",              n: cnt.B    },
-      { key: "babiesPerPage",            n: cnt.BB   },
-      { key: "femaleAccessoriesPerPage", n: cnt.accW },
-      { key: "maleAccessoriesPerPage",   n: cnt.accM },
-    ];
-    let orphan = 0;
-    for (const slot of nonAdult) {
-      if (slot.n > 0 || cfg[slot.key] === 0) continue;
-      orphan += cfg[slot.key];
-      cfg[slot.key] = 0;
-    }
-    if (orphan > 0) {
-      const total = effW + effM || 1;
-      const toW = effW > 0 ? Math.round(orphan * effW / total) : 0;
-      const toM = orphan - toW;
-      cfg.womenAdultsPerPage += toW;
-      cfg.menAdultsPerPage   += toM;
-    }
+  // Aksesoari: ženski aksesoar nema → +1 ženskim odraslima; muški → +1 muškim
+  if (cnt.accW === 0 && cfg.femaleAccessoriesPerPage > 0) {
+    cfg.womenAdultsPerPage += cfg.femaleAccessoriesPerPage;
+    cfg.femaleAccessoriesPerPage = 0;
+  }
+  if (cnt.accM === 0 && cfg.maleAccessoriesPerPage > 0) {
+    cfg.menAdultsPerPage += cfg.maleAccessoriesPerPage;
+    cfg.maleAccessoriesPerPage = 0;
+  }
+
+  // Djeca i bebe: nema → split +1M +1Ž po svakom paru slotova
+  let orphanKids = 0;
+  if (cnt.G  === 0 && cfg.girlsPerPage   > 0) { orphanKids += cfg.girlsPerPage;   cfg.girlsPerPage   = 0; }
+  if (cnt.B  === 0 && cfg.boysPerPage    > 0) { orphanKids += cfg.boysPerPage;    cfg.boysPerPage    = 0; }
+  if (cnt.BB === 0 && cfg.babiesPerPage  > 0) { orphanKids += cfg.babiesPerPage;  cfg.babiesPerPage  = 0; }
+  if (orphanKids > 0) {
+    cfg.womenAdultsPerPage += Math.floor(orphanKids / 2);
+    cfg.menAdultsPerPage   += Math.ceil(orphanKids  / 2);
   }
 
   // Auto firstGender
