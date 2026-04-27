@@ -51,6 +51,9 @@ function autoAdaptPenalties(scoredProducts) {
   // color penalty multiplier (neutral if no color data)
   let lm = topColorRatio > 0.50 ? 1.5 : topColorRatio > 0.35 ? 1.25 : topColorRatio < 0.15 ? 0.8 : 1.0;
 
+  // Mala kolekcija — ne amplifikuj penale, nema dovoljno alternativa
+  if (total < 25) { cm = Math.min(cm, 1.0); lm = Math.min(lm, 1.0); }
+
   const r = (v, m) => Math.round(v * m * 10) / 10;
 
   // jitter: compressed scores → more jitter for variety; wide range → less (preserve ranking)
