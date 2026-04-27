@@ -164,6 +164,16 @@ function autoAdaptConfig(scoredProducts, config) {
   else if (effM > effW * 2)         cfg.firstGender = "M";
   else                              cfg.firstGender = "auto";
 
+  // Prilagodi W/M slotove stvarnom omjeru proizvoda — sprječava nagomilavanje jednog spola
+  if (effW > 0 && effM > 0) {
+    const totalAdult = (cfg.womenAdultsPerPage || 0) + (cfg.menAdultsPerPage || 0);
+    if (totalAdult > 0) {
+      const ratioM = effM / (effW + effM);
+      cfg.menAdultsPerPage   = Math.round(totalAdult * ratioM);
+      cfg.womenAdultsPerPage = totalAdult - cfg.menAdultsPerPage;
+    }
+  }
+
   // Cross-group redistribucija: 100% dječija kolekcija (nema odraslih)
   // Grid postaje: 8 djevojčice, 8 dječaci, 2 djev.aksesoari, 2 dječ.aksesoari, 2 bebe
   const hasAdults = effW > 0 || effM > 0;
