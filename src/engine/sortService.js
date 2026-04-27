@@ -165,17 +165,18 @@ function autoAdaptConfig(scoredProducts, config) {
   else                              cfg.firstGender = "auto";
 
   // Cross-group redistribucija: 100% dječija kolekcija (nema odraslih)
-  // women slotovi → djevojčice, men slotovi → dječaci
+  // Grid postaje: 8 djevojčice, 8 dječaci, 2 djev.aksesoari, 2 dječ.aksesoari, 2 bebe
   const hasAdults = effW > 0 || effM > 0;
   const hasKids   = cnt.G > 0 || cnt.B > 0 || cnt.BB > 0;
   if (!hasAdults && hasKids) {
-    cfg.girlsPerPage += cfg.womenAdultsPerPage || 0;
-    cfg.boysPerPage  += cfg.menAdultsPerPage   || 0;
-    cfg.womenAdultsPerPage = 0;
-    cfg.menAdultsPerPage   = 0;
-    cfg.femaleAccessoriesPerPage = 0;
-    cfg.maleAccessoriesPerPage   = 0;
-    console.log(`👶 [kids-only] girls=${cfg.girlsPerPage} boys=${cfg.boysPerPage}`);
+    cfg.girlsPerPage             = 8;
+    cfg.boysPerPage              = 8;
+    cfg.femaleAccessoriesPerPage = 2;
+    cfg.maleAccessoriesPerPage   = 2;
+    cfg.babiesPerPage            = 2;
+    cfg.womenAdultsPerPage       = 0;
+    cfg.menAdultsPerPage         = 0;
+    console.log(`👶 [kids-only] grid: girls=8 boys=8 accF=2 accM=2 babies=2`);
   }
 
   // Auto minCategoryGap — derived from top category dominance
