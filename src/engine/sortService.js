@@ -157,6 +157,28 @@ function autoAdaptConfig(scoredProducts, config) {
     }
   }
 
+  // Drugi prolaz: orphaned non-adult slotovi (nema prijemnika u grupi) → ravnomjerno na Ž i M
+  if (effW > 0 || effM > 0) {
+    const nonAdult = [
+      { key: "girlsPerPage",             n: cnt.G    },
+      { key: "boysPerPage",              n: cnt.B    },
+      { key: "babiesPerPage",            n: cnt.BB   },
+      { key: "femaleAccessoriesPerPage", n: cnt.accW },
+      { key: "maleAccessoriesPerPage",   n: cnt.accM },
+    ];
+    let toW = 0, toM = 0, flip = effW >= effM; // počni od spola s više proizvoda
+    for (const slot of nonAdult) {
+      if (slot.n > 0 || cfg[slot.key] === 0) continue; // ima proizvoda ili već 0 → preskoči
+      for (let i = 0; i < cfg[slot.key]; i++) {
+        if (flip) toW++; else toM++;
+        flip = !flip;
+      }
+      cfg[slot.key] = 0;
+    }
+    if (effW > 0) cfg.womenAdultsPerPage += toW; else cfg.menAdultsPerPage  += toW;
+    if (effM > 0) cfg.menAdultsPerPage   += toM; else cfg.womenAdultsPerPage += toM;
+  }
+
   // Auto firstGender
   if (effW > 0 && effM === 0)       cfg.firstGender = "W";
   else if (effM > 0 && effW === 0)  cfg.firstGender = "M";
