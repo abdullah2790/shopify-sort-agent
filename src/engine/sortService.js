@@ -230,6 +230,10 @@ function autoAdaptConfig(scoredProducts, config) {
     else                      cfg.minCategoryGap = 0;
   }
 
+  // Grupiranje kategorija i boja isključeno — svaka kategorija/boja tretira se individualno
+  cfg.categoryGroups = [];
+  cfg.colorGroups = [];
+
   // Auto fallbacks — ordered by actual product availability in this collection
   cfg.fallbacks = autoDetectFallbacks(cnt);
 
