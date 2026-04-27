@@ -206,8 +206,8 @@ function sortProducts(products, config={}) {
       const w=op[oPtr++%op.length];
       if(w==="ACC"&&(nAW>0||nAM>0)){const it=pickNextAcc(nAW,nAM)??fromFallback("accW")??fromFallback("accM");if(it){if(lastPickedGenderW)nAW--;else nAM--;cbt(it);continue;}}
       if(w==="BABY"&&nBB>0){const it=best(P.babies)??fromFallback("babies");if(it){nBB--;cbt(it);continue;}}
-      if(w==="GIRL"&&nG>0){const it=best(P.girls)??fromFallback("girls");if(it){nG--;cbt(it);continue;}}
-      if(w==="BOY"&&nB>0){const it=best(P.boys)??fromFallback("boys");if(it){nB--;cbt(it);continue;}}
+      if(w==="GIRL"&&nG>0){const it=best(P.girls)??best(P.accKids)??fromFallback("girls");if(it){nG--;cbt(it);continue;}}
+      if(w==="BOY"&&nB>0){const it=best(P.boys)??best(P.accKids)??fromFallback("boys");if(it){nB--;cbt(it);continue;}}
       const k=kids(P.babies,P.girls,P.boys)??kids(P.girls,P.boys,P.babies)??kids(P.boys,P.girls,P.babies)??best(P.other);if(k){cbt(k);continue;}
       const{it}=adultSlot(nW,nM);if(!it)return;cbt(it);
     }
