@@ -142,12 +142,17 @@ function autoAdaptConfig(scoredProducts, config) {
     cfg.menAdultsPerPage = 0;
   }
 
-  // Aksesoari: ženski aksesoar nema → +1 ženskim odraslima; muški → +1 muškim
-  if (cnt.accW === 0 && cfg.femaleAccessoriesPerPage > 0) {
+  // Provjeri ima li aksesoarnih proizvoda (uključujući sprinklere koji se ne broje u cnt)
+  const ACC_SET = new Set((cfg.accessoryCategories || []).map(c => normCat(c)));
+  const totalAccW = scoredProducts.filter(p => ACC_SET.has(normCat(p.category || extractCategory(p) || "")) && (p.product_type||"") === W).length;
+  const totalAccM = scoredProducts.filter(p => ACC_SET.has(normCat(p.category || extractCategory(p) || "")) && (p.product_type||"") === M).length;
+
+  // Aksesoari: samo ako NEMA NIJEDNOG (ni sprinklera) → +1 odgovarajućem spolu
+  if (totalAccW === 0 && cfg.femaleAccessoriesPerPage > 0) {
     cfg.womenAdultsPerPage += cfg.femaleAccessoriesPerPage;
     cfg.femaleAccessoriesPerPage = 0;
   }
-  if (cnt.accM === 0 && cfg.maleAccessoriesPerPage > 0) {
+  if (totalAccM === 0 && cfg.maleAccessoriesPerPage > 0) {
     cfg.menAdultsPerPage += cfg.maleAccessoriesPerPage;
     cfg.maleAccessoriesPerPage = 0;
   }
