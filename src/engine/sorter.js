@@ -91,12 +91,13 @@ function sortProducts(products, config={}) {
   function pickFromPools(pools, ptr){
     const pc=out.at(-1)?.normCategory??"";
     const len=Math.max(1,ACC_ORDER.length);
+    const okScore = it => it.isSprinkler || (it.score??0) >= ACC_SCORE_MIN;
     // Prolaz 1: traži po redoslijedu, izbjegavaj isti kao prethodni
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       if(want===pc)continue;
       for(const pool of pools){
-        const f=pool.popWhere(it=>it.normCategory===want&&(it.score??0)>=ACC_SCORE_MIN);
+        const f=pool.popWhere(it=>it.normCategory===want&&okScore(it));
         if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
@@ -104,7 +105,7 @@ function sortProducts(products, config={}) {
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       for(const pool of pools){
-        const f=pool.popWhere(it=>it.normCategory===want&&(it.score??0)>=ACC_SCORE_MIN);
+        const f=pool.popWhere(it=>it.normCategory===want&&okScore(it));
         if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
