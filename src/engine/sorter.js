@@ -87,11 +87,11 @@ function sortProducts(products, config={}) {
   let accGenFlip=false; // alternira W/M kad oba imaju stock
   let lastPickedGenderW=true;
 
-  const ACC_SCORE_MIN = 3.0; // aksesoari ispod ovog scorea idu na kraj, ne u ACC slot
+  const ACC_SCORE_MIN = 3.0; // aksesoari ispod ovog scorea idu u drain, ne u ACC slot
   function pickFromPools(pools, ptr){
     const pc=out.at(-1)?.normCategory??"";
     const len=Math.max(1,ACC_ORDER.length);
-    // Prolaz 1: traži po redoslijedu, izbjegavaj isti kao prethodni, preskoči niski score
+    // Prolaz 1: traži po redoslijedu, izbjegavaj isti kao prethodni
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       if(want===pc)continue;
@@ -100,7 +100,7 @@ function sortProducts(products, config={}) {
         if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
-    // Prolaz 2: ignoriši pc ograničenje, ali još uvijek samo visoki score
+    // Prolaz 2: ignoriši pc ograničenje
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       for(const pool of pools){
@@ -108,9 +108,7 @@ function sortProducts(products, config={}) {
         if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
-    // Zadnji resort: ma šta iz poolova (bez score filtera)
-    for(const pool of pools){const f=pool.shift();if(f)return{item:f,newPtr:(ptr+1)%len};}
-    return null;
+    return null; // Nema acc s dovoljnim scoreom — preskoči slot
   }
 
   function pickNextAcc(nAW,nAM){
@@ -227,7 +225,22 @@ function sortProducts(products, config={}) {
     for(const sp of[P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids,P.sprAccBaby]){const it=sp.shift();if(it){commit(null,it);return it;}}
     return null;
   }
-  while(anyLeft()&&safety<400000){safety++;if(!drain())break;}
+  // Tail: ako su sve preostale (ne-sprinkler) iste kategorije, sortiraj po scoreu bez diversifikacije
+  const regularPools=[P.womenAdults,P.menAdults,P.unisexAdults,P.girls,P.boys,P.babies,P.accW,P.accM,P.accU,P.accKids,P.accBaby,P.other];
+  const remainingCats=new Set();
+  for(const pool of regularPools){for(const it of pool.topN(9999))remainingCats.add(it.normCategory);}
+  if(remainingCats.size<=1){
+    // Samo jedna kategorija ostala — drain po čistom scoreu
+    while(anyLeft()&&safety<400000){safety++;
+      let bi=null,bp=null,bv=-Infinity;
+      for(const pool of [...regularPools,P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids,P.sprAccBaby]){
+        const it=pool.topN(1)[0];if(!it)continue;const v=it.score??0;if(v>bv){bv=v;bi=it;bp=pool;}
+      }
+      if(!bi)break;commit(bp,bi);
+    }
+  } else {
+    while(anyLeft()&&safety<400000){safety++;if(!drain())break;}
+  }
 
   return out.map((item,i)=>({shopifyId:item.shopifyId,position:i+1,score:item.score,type:item.type,category:item.category}));
 }
