@@ -92,8 +92,8 @@ function autoDetectFallbacks(cnt) {
     return [...ord(siblings), ...ord(rest), "other"];
   }
   return {
-    women:  build(["unisex"], ["other"]),           // ne pada na muske
-    men:    build(["unisex"], ["other"]),            // ne pada na zenske
+    women:  build(["unisex"], ["men", "other"]),
+    men:    build(["unisex"], ["women", "other"]),
     girls:  build(["boys", "babies"],  ["women", "unisex", "men"]),
     boys:   build(["girls", "babies"], ["men", "unisex", "women"]),
     babies: build(["girls", "boys"],   ["women", "men", "unisex"]),
@@ -157,7 +157,7 @@ function autoAdaptConfig(scoredProducts, config) {
     }
   }
 
-  // Drugi prolaz: orphaned non-adult slotovi (nema prijemnika u grupi) → ravnomjerno na Ž i M
+  // Drugi prolaz: orphaned non-adult slotovi → proporcionalno na Ž i M prema broju proizvoda
   if (effW > 0 || effM > 0) {
     const nonAdult = [
       { key: "girlsPerPage",             n: cnt.G    },
@@ -166,17 +166,19 @@ function autoAdaptConfig(scoredProducts, config) {
       { key: "femaleAccessoriesPerPage", n: cnt.accW },
       { key: "maleAccessoriesPerPage",   n: cnt.accM },
     ];
-    let toW = 0, toM = 0, flip = effW >= effM; // počni od spola s više proizvoda
+    let orphan = 0;
     for (const slot of nonAdult) {
-      if (slot.n > 0 || cfg[slot.key] === 0) continue; // ima proizvoda ili već 0 → preskoči
-      for (let i = 0; i < cfg[slot.key]; i++) {
-        if (flip) toW++; else toM++;
-        flip = !flip;
-      }
+      if (slot.n > 0 || cfg[slot.key] === 0) continue;
+      orphan += cfg[slot.key];
       cfg[slot.key] = 0;
     }
-    if (effW > 0) cfg.womenAdultsPerPage += toW; else cfg.menAdultsPerPage  += toW;
-    if (effM > 0) cfg.menAdultsPerPage   += toM; else cfg.womenAdultsPerPage += toM;
+    if (orphan > 0) {
+      const total = effW + effM || 1;
+      const toW = effW > 0 ? Math.round(orphan * effW / total) : 0;
+      const toM = orphan - toW;
+      cfg.womenAdultsPerPage += toW;
+      cfg.menAdultsPerPage   += toM;
+    }
   }
 
   // Auto firstGender
