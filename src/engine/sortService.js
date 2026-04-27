@@ -230,12 +230,6 @@ function autoAdaptConfig(scoredProducts, config) {
     else                      cfg.minCategoryGap = 0;
   }
 
-  // Auto color groups — detect families present in this collection
-  cfg.colorGroups = autoDetectColorGroups(scoredProducts);
-
-  // Auto category groups — detect families present in this collection
-  cfg.categoryGroups = autoDetectCategoryGroups(scoredProducts);
-
   // Auto fallbacks — ordered by actual product availability in this collection
   cfg.fallbacks = autoDetectFallbacks(cnt);
 
