@@ -23,65 +23,6 @@ function percentile(arr, p) {
 function normText(t) { return String(t||"").trim().toLowerCase().replace(/č/g,"c").replace(/ć/g,"c").replace(/š/g,"s").replace(/đ/g,"dj").replace(/ž/g,"z"); }
 function normCat(c) { const n=normText(c); if(n==="polo majica"||n==="polo majice")return "majice"; return n; }
 
-function autoDetectColorGroups(scoredProducts) {
-  const FAMILIES = [
-    { name: "Plava",       roots: ["plav", "navy", "royal", "indigo", "cobalt", "teal", "tirkiz", "blue", "azur"] },
-    { name: "Crna",        roots: ["crn", "black", "ebony", "onyx"] },
-    { name: "Bijela",      roots: ["bijel", "white", "cream", "ivory", "offwhite", "off white", "ecru"] },
-    { name: "Siva",        roots: ["siv", "grey", "gray", "charcoal", "melan", "antracit"] },
-    { name: "Crvena",      roots: ["crven", "red", "burgund", "bordo", "wine", "vino", "rust", "coral"] },
-    { name: "Zelena",      roots: ["zelen", "green", "olive", "maslinat", "khaki", "sage", "hunter", "army"] },
-    { name: "Smeđa",       roots: ["smed", "brown", "camel", "tan", "caramel", "karamel", "mocha", "hazel", "cognac"] },
-    { name: "Žuta",        roots: ["zut", "yellow", "mustard", "senf", "gold"] },
-    { name: "Roze",        roots: ["roz", "pink", "mauve", "blush", "salmon", "losos"] },
-    { name: "Ljubičasta",  roots: ["ljubic", "purple", "violet", "lavender", "lilac"] },
-    { name: "Narandžasta", roots: ["naranz", "orange", "terracotta", "apricot", "breskva"] },
-  ];
-  const originals = {};
-  for (const p of scoredProducts) {
-    if (p.isSprinkler || !p.color) continue;
-    const nc = normText(p.color);
-    if (!originals[nc]) originals[nc] = p.color;
-  }
-  const groups = [];
-  const assigned = new Set();
-  for (const fam of FAMILIES) {
-    const matched = Object.keys(originals).filter(nc => !assigned.has(nc) && fam.roots.some(r => nc.includes(r)));
-    if (matched.length >= 2) {
-      groups.push({ name: fam.name, colors: matched.map(nc => originals[nc]) });
-      matched.forEach(nc => assigned.add(nc));
-    }
-  }
-  return groups;
-}
-
-function autoDetectCategoryGroups(scoredProducts) {
-  const FAMILIES = [
-    { name: "Pantalone",  norms: ["farmerke", "pantalone", "hlace", "bermude", "teksas hlace", "teksas pantalone", "cargo pantalone"] },
-    { name: "Jakne",      norms: ["jakne", "jakna", "kaput", "kaputi", "vjetrovke", "vjetrovka", "kisne jakne", "pernate jakne", "softshell"] },
-    { name: "Dukserice",  norms: ["dukserice", "duksevi", "duks", "hoodie", "sweatshirt"] },
-    { name: "Majice",     norms: ["majice", "majica"] },
-    { name: "Džemperi",   norms: ["dzemperi", "dzemper", "pulover", "puloveri", "kardigan", "kardigani"] },
-    { name: "Trenerke",   norms: ["trenerke", "trenerka", "jogging", "sport hlace", "sportske hlace"] },
-  ];
-  const originals = {};
-  for (const p of scoredProducts) {
-    if (p.isSprinkler || !p.category) continue;
-    const nc = normCat(p.category);
-    if (!originals[nc]) originals[nc] = p.category;
-  }
-  const existing = new Set(Object.keys(originals));
-  const groups = [];
-  const assigned = new Set();
-  for (const fam of FAMILIES) {
-    const matched = fam.norms.filter(nc => existing.has(nc) && !assigned.has(nc));
-    if (matched.length >= 2) {
-      groups.push({ name: fam.name, categories: matched.map(nc => originals[nc]) });
-      matched.forEach(nc => assigned.add(nc));
-    }
-  }
-  return groups;
-}
 
 function autoAdaptPenalties(scoredProducts) {
   const non = scoredProducts.filter(p => !p.isSprinkler);
@@ -230,10 +171,6 @@ function autoAdaptConfig(scoredProducts, config) {
     else                      cfg.minCategoryGap = 0;
   }
 
-  // Grupiranje kategorija i boja isključeno — svaka kategorija/boja tretira se individualno
-  cfg.categoryGroups = [];
-  cfg.colorGroups = [];
-
   // Auto fallbacks — ordered by actual product availability in this collection
   cfg.fallbacks = autoDetectFallbacks(cnt);
 
@@ -316,7 +253,7 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
 
     const scored = calculateScores(products, categoryScores, rangOverride, config);
     const adaptedConfig = autoAdaptConfig(scored, config);
-    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} penType=${adaptedConfig.penaltySameType} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} catGrp=${adaptedConfig.categoryGroups.length} colorGrp=${adaptedConfig.colorGroups.length} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
+    console.log(`🔧 [${shopDomain}/${collectionId}] adapt: first=${adaptedConfig.firstGender} gap=${adaptedConfig.minCategoryGap} penCat=${adaptedConfig.penaltySameCategory} penColor=${adaptedConfig.penaltySameColor} penType=${adaptedConfig.penaltySameType} jitter=${adaptedConfig.jitter} relax=${adaptedConfig.relaxStep} fb_W=[${adaptedConfig.fallbacks?.women?.join(",")||""}] fb_M=[${adaptedConfig.fallbacks?.men?.join(",")||""}]`);
     const sorted = sortProducts(scored, adaptedConfig);
     await updateCollectionProductPositions(shopDomain, accessToken, collectionId, sorted);
     await db.query(`UPDATE watched_collections SET last_sorted_at = NOW() WHERE shop_id = $1 AND collection_id = $2`, [shopId, collectionId]);

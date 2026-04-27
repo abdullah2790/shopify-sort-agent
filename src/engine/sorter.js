@@ -10,21 +10,8 @@ function sortProducts(products, config={}) {
   const BANNED = new Set(cfg.bannedCategoriesTopN.map(normCat));
   const ACC = new Set(cfg.accessoryCategories.map(normCat));
 
-  // Grupe kategorija — tretiraju se kao isti entitet pri penalty provjeri
-  const CAT_GROUPS = {};
-  for (const g of (cfg.categoryGroups || [])) {
-    const gName = normCat(g.name);
-    for (const c of (g.categories || [])) CAT_GROUPS[normCat(c)] = gName;
-  }
-  function gcat(normCategory) { return CAT_GROUPS[normCategory] ?? normCategory; }
-
-  // Grupe boja
-  const COLOR_GROUPS = {};
-  for (const g of (cfg.colorGroups || [])) {
-    const gName = normText(g.name);
-    for (const c of (g.colors || [])) COLOR_GROUPS[normText(c)] = gName;
-  }
-  function gcolor(color) { const n = normText(color); return COLOR_GROUPS[n] ?? n; }
+  function gcat(normCategory) { return normCategory; }
+  function gcolor(color) { return normText(color); }
 
   const W=cfg.womenType,M=cfg.menType,U=cfg.unisexType,G=cfg.girlsType,B=cfg.boysType,BB=cfg.babyType;
 

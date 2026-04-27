@@ -42,8 +42,6 @@ module.exports = {
   banTopN              : 24,
   bannedCategoriesTopN : ["Setovi", "Potkošulje"],
   minCategoryGap: 0,   // 0 = isključeno | N = ista kategorija (ili grupa) ne može biti unutar N pozicija
-  categoryGroups: [],  // npr. [{ name: "Pantalone", categories: ["Farmerke", "Pantalone"] }]
-  colorGroups: [],     // npr. [{ name: "Plava", colors: ["Navy", "Royal Blue", "Tamno plava"] }]
   sprinklerScoreValue: -1,
   accessoryCategories: [
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
