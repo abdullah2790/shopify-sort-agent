@@ -1202,7 +1202,6 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   const [isDirty, setIsDirty] = useState(false);
   const [bannedList, setBannedList] = useState(config.bannedCategoriesTopN || []);
   const [bannedTyping, setBannedTyping] = useState("");
-  const [fallbacks, setFallbacks] = useState({ ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) });
 
   const sprinklerCats = categories.filter(c => c.is_sprinkler).map(c => c.handle);
   function initAccOrder(savedOrder) {
@@ -1218,10 +1217,9 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   useEffect(() => {
     const nc = normalizeWeights({ ...config });
     const nb = config.bannedCategoriesTopN || [];
-    const nf = { ...DEFAULT_FALLBACKS, ...(config.fallbacks || {}) };
     const na = initAccOrder(config.accessoryCategoryOrder);
-    origCfgRef.current = { cfg: nc, bannedList: nb, fallbacks: nf, accOrder: na };
-    setCfg(nc); setBannedList(nb); setFallbacks(nf); setAccOrder(na);
+    origCfgRef.current = { cfg: nc, bannedList: nb, accOrder: na };
+    setCfg(nc); setBannedList(nb); setAccOrder(na);
     setIsDirty(false); onDirtyChange(false);
   }, [config, categories]);
 
@@ -1232,11 +1230,10 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
     const dirty =
       JSON.stringify(cfg)            !== JSON.stringify(o.cfg) ||
       JSON.stringify(bannedList)     !== JSON.stringify(o.bannedList) ||
-      JSON.stringify(fallbacks)      !== JSON.stringify(o.fallbacks) ||
       JSON.stringify(accOrder)       !== JSON.stringify(o.accOrder);
     setIsDirty(dirty);
     if (dirty !== prevDirtyRef.current) { prevDirtyRef.current = dirty; onDirtyChange(dirty); }
-  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(fallbacks), JSON.stringify(accOrder)]);
+  }, [JSON.stringify(cfg), JSON.stringify(bannedList), JSON.stringify(accOrder)]);
 
   function addBanned(val) {
     const trimmed = val.trim();
@@ -1263,7 +1260,7 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
   async function handleSave() {
     if (!pageTotalValid || !weightsValid) return;
     setSaving(true);
-    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, fallbacks, accessoryCategoryOrder: accOrder });
+    await onSave({ ...cfg, bannedCategoriesTopN: bannedList, accessoryCategoryOrder: accOrder });
     setSaving(false);
     setIsDirty(false); onDirtyChange(false);
   }
@@ -1293,10 +1290,6 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
               <TextField label="Bebe" type="number" min="0" value={num("babiesPerPage")} onChange={v=>setPageNum("babiesPerPage",v)} />
               <TextField label="Žen. aksesoar" type="number" min="0" value={num("femaleAccessoriesPerPage")} onChange={v=>setPageNum("femaleAccessoriesPerPage",v)} />
               <TextField label="Muš. aksesoar" type="number" min="0" value={num("maleAccessoriesPerPage")} onChange={v=>setPageNum("maleAccessoriesPerPage",v)} />
-              <Select label="Ko ide prvi"
-                options={[{label:"Auto",value:"auto"},{label:"Žene",value:"W"},{label:"Muškarci",value:"M"}]}
-                value={cfg.firstGender||"auto"} onChange={v=>setStr("firstGender",v)}
-              />
             </FormLayout.Group>
           </FormLayout>
           <div style={{
@@ -1314,75 +1307,6 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
         </VerticalStack>
       </Card>
 
-      {/* Penali diversifikacije */}
-      <Card>
-        <VerticalStack gap="400">
-          <VerticalStack gap="100">
-            <Text as="h3" variant="headingSm">Penali diversifikacije</Text>
-            <Text tone="subdued" variant="bodySm">
-              Score raspon je 0–12. Penalty &gt; 12 = nikad isti na toj poziciji. Relax mehanizam automatski popušta ako nema alternative.
-            </Text>
-          </VerticalStack>
-
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"14px",minWidth:"400px"}}>
-              <thead>
-                <tr style={{borderBottom:"2px solid #e1e3e5"}}>
-                  <th style={{textAlign:"left",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>Atribut</th>
-                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>
-                    <div>prev1</div>
-                    <div style={{fontWeight:400,fontSize:"10px",textTransform:"none",color:"#8c9196"}}>odmah prethodni</div>
-                  </th>
-                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>
-                    <div>prev2</div>
-                    <div style={{fontWeight:400,fontSize:"10px",textTransform:"none",color:"#8c9196"}}>2 pozicije ranije</div>
-                  </th>
-                  <th style={{textAlign:"center",padding:"8px 12px",fontWeight:600,color:"#6d7175",fontSize:"12px",textTransform:"uppercase"}}>
-                    <div>prev3</div>
-                    <div style={{fontWeight:400,fontSize:"10px",textTransform:"none",color:"#8c9196"}}>3 pozicije ranije</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { label:"Kategorija", desc:"npr. Jakne, Majice", k1:"penaltySameCategory",   k2:"penaltyInLast2Category", k3:"penaltyInLast3Category" },
-                  { label:"Boja",       desc:"boja proizvoda",     k1:"penaltySameColor",      k2:"penaltyInLast2Color",    k3:"penaltyInLast3Color" },
-                  { label:"Tip",        desc:"Žene / Muškarci...", k1:"penaltySameType",       k2:"penaltyInLast2Type",     k3:"penaltyInLast3Type" },
-                ].map((row, i) => (
-                  <tr key={row.label} style={{background:i%2===0?"#fafbfb":"white",borderBottom:"1px solid #f1f2f3"}}>
-                    <td style={{padding:"8px 12px"}}>
-                      <div style={{fontWeight:600}}>{row.label}</div>
-                      <div style={{fontSize:"11px",color:"#8c9196"}}>{row.desc}</div>
-                    </td>
-                    {[row.k1, row.k2, row.k3].map(k => {
-                      const v = cfg[k] ?? 0;
-                      const isNever = v > 12;
-                      return (
-                        <td key={k} style={{padding:"6px 12px",textAlign:"center"}}>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"3px"}}>
-                            <input
-                              type="number" min="0" step="0.5"
-                              value={v}
-                              onChange={e=>setNum(k, e.target.value)}
-                              style={{
-                                width:"60px",textAlign:"center",fontSize:"14px",
-                                border:`1px solid ${isNever?"#f0a0a0":"#c9cccf"}`,
-                                borderRadius:"6px",padding:"5px 6px",
-                                background: isNever?"#fff0f0":"white",
-                              }}
-                            />
-                            {isNever && <span style={{fontSize:"10px",color:"#d72c0d",fontWeight:600}}>NIKAD</span>}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </VerticalStack>
-      </Card>
 
       {/* Zabranjene kategorije */}
       <Card>
@@ -1469,40 +1393,6 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
         </VerticalStack>
       </Card>
 
-      {/* Fallback redoslijed */}
-      <Card>
-        <VerticalStack gap="400">
-          <VerticalStack gap="100">
-            <Text as="h3" variant="headingSm">Fallback redoslijed</Text>
-            <Text tone="subdued" variant="bodySm">
-              Kada nema dovoljno proizvoda određenog tipa, popunjava se sljedećim po redu.
-              Npr. nema ženskih → uzmi Unisex → Muškarci → Ostalo.
-            </Text>
-          </VerticalStack>
-          <div style={{borderRadius:"8px",border:"1px solid #e1e3e5",overflow:"hidden"}}>
-            <div style={{padding:"8px 12px",background:"#fafbfb",borderBottom:"1px solid #e1e3e5",display:"grid",gridTemplateColumns:"110px 1fr",gap:"12px"}}>
-              <span style={{fontSize:"11px",fontWeight:600,color:"#6d7175",textTransform:"uppercase"}}>Slot</span>
-              <span style={{fontSize:"11px",fontWeight:600,color:"#6d7175",textTransform:"uppercase"}}>Fallback redoslijed</span>
-            </div>
-            <div style={{padding:"0 12px"}}>
-              {[
-                { key:"women",  label:"Žene" },
-                { key:"men",    label:"Muškarci" },
-                { key:"girls",  label:"Djevojčice" },
-                { key:"boys",   label:"Dječaci" },
-                { key:"babies", label:"Bebe" },
-                { key:"accW",   label:"Žen. dodaci" },
-                { key:"accM",   label:"Muš. dodaci" },
-              ].map(({key, label}) => (
-                <FallbackRow key={key} slotKey={key} label={label}
-                  chain={fallbacks[key] || []}
-                  onChange={chain => { setFallbacks(f => ({...f, [key]: chain})); }}
-                />
-              ))}
-            </div>
-          </div>
-        </VerticalStack>
-      </Card>
 
       {/* Fino podešavanje algoritma */}
       <Card>
@@ -1545,76 +1435,6 @@ function ConfigTab({ config, categories = EMPTY_CATEGORIES, title, onSave, onRes
             </tbody>
           </table>
 
-          <div style={{display:"flex", gap:"16px", flexWrap:"wrap"}}>
-
-            {/* Minimalni razmak kategorije */}
-            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
-                <div>
-                  <div style={{fontWeight:600, fontSize:"14px"}}>Min. razmak kategorije</div>
-                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Pozicija između iste kategorije</div>
-                </div>
-                <input
-                  type="number" min="0" max="20" step="1"
-                  value={num("minCategoryGap")}
-                  onChange={e=>setNum("minCategoryGap",e.target.value)}
-                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
-                />
-              </div>
-              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
-                Ista kategorija (ili grupa) ne može se pojaviti unutar N pozicija.
-                <br/><span style={{color:"#1a6b3a"}}>0 = isključeno</span> ·
-                <span style={{color:"#b98900"}}> 4 = svakih 4 mjesta</span> ·
-                <span style={{color:"#d72c0d"}}> 8 = rijetko</span>
-              </div>
-            </div>
-
-            {/* Jitter */}
-            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
-                <div>
-                  <div style={{fontWeight:600, fontSize:"14px"}}>Jitter</div>
-                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Nasumičnost u scorevima</div>
-                </div>
-                <input
-                  type="number" min="0" max="2" step="0.05"
-                  value={num("jitter")}
-                  onChange={e=>setNum("jitter",e.target.value)}
-                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
-                />
-              </div>
-              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
-                Dodaje blagu nasumičnost tako da svako sortiranje nije identično.
-                <br/><span style={{color:"#1a6b3a"}}>0 = uvijek isti redoslijed</span> ·
-                <span style={{color:"#b98900"}}> 0.25 = blaga varijacija</span> ·
-                <span style={{color:"#d72c0d"}}> &gt;0.5 = haotično</span>
-              </div>
-            </div>
-
-            {/* Relax korak */}
-            <div style={{flex:1, minWidth:"200px", padding:"16px", borderRadius:"10px", background:"#f9fafb", border:"1px solid #e1e3e5"}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px"}}>
-                <div>
-                  <div style={{fontWeight:600, fontSize:"14px"}}>Relax korak</div>
-                  <div style={{fontSize:"12px", color:"#6d7175", marginTop:"2px"}}>Popuštanje penala</div>
-                </div>
-                <input
-                  type="number" min="0.1" max="1" step="0.05"
-                  value={num("relaxStep")}
-                  onChange={e=>setNum("relaxStep",e.target.value)}
-                  style={{width:"64px", textAlign:"center", border:"1px solid #c9cccf", borderRadius:"6px", padding:"5px 6px", fontSize:"14px"}}
-                />
-              </div>
-              <div style={{fontSize:"12px", color:"#6d7175", lineHeight:"1.5"}}>
-                Kada nema idealne alternative, penali se smanjuju za ovaj faktor.
-                Min. je 20% originalnog penala.
-                <br/><span style={{color:"#1a6b3a"}}>0.90 = sporo popušta</span> ·
-                <span style={{color:"#b98900"}}> 0.80 = uravnoteženo</span> ·
-                <span style={{color:"#d72c0d"}}> 0.60 = brzo popušta</span>
-              </div>
-            </div>
-
-          </div>
         </VerticalStack>
       </Card>
 

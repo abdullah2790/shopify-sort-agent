@@ -1,27 +1,8 @@
 module.exports = {
-  // Penali diversifikacije — score raspon je 0–12
-  // >12 = nikad isti na toj poziciji | relax mehanizam automatski popušta ako nema alternative
-  penaltySameCategory    : 14,   // prev1 — nikad ista kategorija odmah iza (najvažniji)
-  penaltySameColor       : 10,   // prev1 — boja je vizuelno najuočljivija
-  penaltySameType        : 5,    // prev1 — tip (Žene/Muškarci) — stranica već alternira polove
-  penaltyInLast2Category : 7,    // prev2 — jaka deterenca (ista kat. na pos. 1 i 3 je dosadno)
-  penaltyInLast2Color    : 5,    // prev2
-  penaltyInLast2Type     : 2,    // prev2
-  penaltyInLast3Category : 3,    // prev3 — lagana deterenca
-  penaltyInLast3Color    : 2,    // prev3
-  penaltyInLast3Type     : 0.8,  // prev3
-  penaltyInLast4Category : 1.5,  // prev4 — samo blago smanjuje šansu
-  penaltyInLast4Color    : 1.0,
-  penaltyInLast4Type     : 0.3,
-  penaltyInLast5Category : 0.5,  // prev5 — gotovo zanemarivo
-  penaltyInLast5Color    : 0.3,
-  penaltyInLast5Type     : 0.1,
-  relaxStep      : 0.80,
   minRelaxFactor : 0.20,
   enableLookahead  : true,
   lookaheadSample  : 25,
   lookaheadMinPool : 15,
-  jitter        : 0.25,
   deterministic : false,
   treatMissingScoreAs: 0,
   womenType  : "Žene",
@@ -38,10 +19,8 @@ module.exports = {
   babiesPerPage     : 2,
   femaleAccessoriesPerPage : 0,
   maleAccessoriesPerPage   : 0,
-  firstGender       : "auto",
   banTopN              : 24,
   bannedCategoriesTopN : ["Setovi", "Potkošulje"],
-  minCategoryGap: 0,   // 0 = isključeno | N = ista kategorija (ili grupa) ne može biti unutar N pozicija
   sprinklerScoreValue: -1,
   accessoryCategories: [
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
@@ -52,15 +31,6 @@ module.exports = {
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
     "Manžetne","Pidžame","Peškiri","Čarape","Donji veš","Veš","Kape",
   ],
-  fallbacks: {
-    women:  ["unisex", "men", "other"],
-    men:    ["unisex", "women", "other"],
-    girls:  ["women", "unisex", "boys", "babies", "men", "other"],
-    boys:   ["men", "unisex", "girls", "babies", "women", "other"],
-    babies: ["girls", "boys", "women", "men", "other"],
-    accW:   ["women", "unisex", "men", "other"],
-    accM:   ["men", "unisex", "women", "other"],
-  },
   maxSameTypeRun    : 3,
   maxSameCategoryRun: 4,
   scoreWeightCategory : 65,
