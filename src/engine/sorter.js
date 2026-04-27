@@ -87,27 +87,28 @@ function sortProducts(products, config={}) {
   let accGenFlip=false; // alternira W/M kad oba imaju stock
   let lastPickedGenderW=true;
 
+  const ACC_SCORE_MIN = 3.0; // aksesoari ispod ovog scorea idu na kraj, ne u ACC slot
   function pickFromPools(pools, ptr){
     const pc=out.at(-1)?.normCategory??"";
     const len=Math.max(1,ACC_ORDER.length);
-    // Prolaz 1: traži po redoslijedu, izbjegavaj isti kao prethodni
+    // Prolaz 1: traži po redoslijedu, izbjegavaj isti kao prethodni, preskoči niski score
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       if(want===pc)continue;
       for(const pool of pools){
-        const f=pool.popWhere(it=>it.normCategory===want);
+        const f=pool.popWhere(it=>it.normCategory===want&&(it.score??0)>=ACC_SCORE_MIN);
         if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
-    // Prolaz 2: traži po redoslijedu, ignoriši pc ograničenje (acc slot se ne smije izgubiti)
+    // Prolaz 2: ignoriši pc ograničenje, ali još uvijek samo visoki score
     for(let i=0;i<ACC_ORDER.length;i++){
       const want=ACC_ORDER[(ptr+i)%len];
       for(const pool of pools){
-        const f=pool.popWhere(it=>it.normCategory===want);
+        const f=pool.popWhere(it=>it.normCategory===want&&(it.score??0)>=ACC_SCORE_MIN);
         if(f)return{item:f,newPtr:(ptr+i+1)%len};
       }
     }
-    // Zadnji resort: ma šta iz poolova
+    // Zadnji resort: ma šta iz poolova (bez score filtera)
     for(const pool of pools){const f=pool.shift();if(f)return{item:f,newPtr:(ptr+1)%len};}
     return null;
   }

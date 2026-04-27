@@ -1,5 +1,5 @@
 module.exports = {
-  minRelaxFactor : 0.35,
+  minRelaxFactor : 0.15,
   enableLookahead  : true,
   lookaheadSample  : 25,
   lookaheadMinPool : 15,
