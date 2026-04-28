@@ -238,7 +238,7 @@ function sortProducts(products, config={}) {
     for(const it of tail)out.push(it);
   }
 
-  return out.map((item,i)=>({shopifyId:item.shopifyId,position:i+1,score:item.score,type:item.type,category:item.category}));
+  return out.map((item,i)=>({shopifyId:item.shopifyId,position:i+1,score:item.score,type:item.type,category:item.category,isAccessory:item.isAccessory||false,isSprinkler:item.isSprinkler||false}));
 }
 
 function extractCategory(p){

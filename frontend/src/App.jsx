@@ -1539,7 +1539,7 @@ function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
                       }}>
                         <td style={{padding:"7px 10px",textAlign:"center",color:"#8c9196",fontWeight:600,fontSize:"12px"}}>{absPos}</td>
                         <td style={{padding:"7px 10px",maxWidth:"220px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {p.score < 0 ? <span title="Aksesoar">⭐ </span> : null}{p.title}
+                          {p.isSprinkler ? <span title="Sprinkler">⭐ </span> : p.isAccessory ? <span title="Aksesoar">🔗 </span> : null}{p.title}
                         </td>
                         <td style={{padding:"7px 10px",color:"#444"}}>{p.category || <span style={{color:"#bbb"}}>—</span>}</td>
                         <td style={{padding:"7px 10px",textAlign:"center"}}>
@@ -1548,9 +1548,10 @@ function PreviewModal({ shop, collectionId, collectionTitle, onClose }) {
                         <td style={{padding:"7px 10px",textAlign:"center"}}>
                           <span style={{
                             display:"inline-block",padding:"2px 8px",borderRadius:"10px",
-                            background:scoreColor(p.score),fontSize:"12px",fontWeight:600,
+                            background: p.isSprinkler ? "#e4e5e7" : p.isAccessory ? "#f0f4ff" : scoreColor(p.score),
+                            fontSize:"12px",fontWeight:600,
                           }}>
-                            {p.score < 0 ? "spr" : p.score}
+                            {p.isSprinkler ? "spr" : p.isAccessory ? "acc" : p.score}
                           </span>
                         </td>
                       </tr>
