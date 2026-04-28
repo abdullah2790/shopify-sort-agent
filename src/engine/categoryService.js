@@ -129,7 +129,7 @@ async function getCategoryScoresForSort(shopId) {
   const cats = await getCategories(shopId);
   const result = {};
   for (const cat of cats) {
-    result[cat.name] = { ...cat.season_scores, isSprinkler: cat.is_sprinkler || false };
+    result[cat.name] = { ...cat.season_scores, isAccessory: cat.is_sprinkler || false };
   }
   return result;
 }

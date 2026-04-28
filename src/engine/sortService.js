@@ -230,7 +230,6 @@ function calculateScores(products, categoryScores = {}, rangOverride = null, con
 
     const category = extractCategory(p);
     const catInfo = categoryScores[category] || {};
-    if (catInfo.isSprinkler) return { ...p, category, score: -1, isSprinkler: true };
     const catScore = catInfo[rang] ?? 5;
     const variants  = p.variants?.length || 0;
     const inventory = (p.variants || []).reduce((s, v) => s + (v.inventory_quantity || 0), 0);
@@ -268,6 +267,8 @@ async function runSort({ shopId, shopDomain, accessToken, collectionId, shopConf
     const config = mergeConfig(shopConfig, collectionConfig);
 
     const categoryScores = await getCategoryScoresForSort(shopId);
+    const accFromDB = Object.keys(categoryScores).filter(k => categoryScores[k].isAccessory);
+    if (accFromDB.length > 0) config.accessoryCategories = accFromDB;
 
     const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
     if (!products.length) return log(shopId, collectionId, trigger, 0, Date.now()-start, "success");
@@ -311,6 +312,8 @@ async function runSortPreview({ shopId, shopDomain, accessToken, collectionId, s
   const config = mergeConfig(shopConfig, collectionConfig);
   const rang = rangOverride || getCurrentRang();
   const categoryScores = await getCategoryScoresForSort(shopId);
+  const accFromDB = Object.keys(categoryScores).filter(k => categoryScores[k].isAccessory);
+  if (accFromDB.length > 0) config.accessoryCategories = accFromDB;
   const products = await getCollectionProducts(shopDomain, accessToken, collectionId);
   if (!products.length) return { rang, total: 0, products: [] };
   const scored = calculateScores(products, categoryScores, rangOverride, config);

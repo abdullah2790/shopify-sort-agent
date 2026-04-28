@@ -23,10 +23,7 @@ module.exports = {
   bannedCategoriesTopN : ["Setovi", "Potkošulje"],
   sprinklerScoreValue: -1,
   lowScoreThreshold: 4,
-  accessoryCategories: [
-    "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
-    "Manžetne","Čarape","Pidžame","Kape","Donji veš","Veš","Peškiri",
-  ],
+  accessoryCategories: [],
   accessoryCategoryOrder: [],
   sprinklerCategoryOrder: [
     "Torbe","Ruksaci","Novčanici","Kaiševi","Neseseri",
