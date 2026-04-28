@@ -36,6 +36,7 @@ function sortProducts(products, config={}) {
   const P=Object.fromEntries(Object.entries(raw).map(([k,arr])=>[k,new Pool(desc(arr))]));
   const PMAP={women:P.womenAdults,men:P.menAdults,unisex:P.unisexAdults,girls:P.girls,boys:P.boys,babies:P.babies,accW:P.accW,accM:P.accM,accU:P.accU,other:P.other};
   const PEN={c:cfg.penaltySameCategory,col:cfg.penaltySameColor,t:cfg.penaltySameType,c2:cfg.penaltyInLast2Category,col2:cfg.penaltyInLast2Color,t2:cfg.penaltyInLast2Type,c3:cfg.penaltyInLast3Category,col3:cfg.penaltyInLast3Color,t3:cfg.penaltyInLast3Type,c4:cfg.penaltyInLast4Category,col4:cfg.penaltyInLast4Color,t4:cfg.penaltyInLast4Type,c5:cfg.penaltyInLast5Category,col5:cfg.penaltyInLast5Color,t5:cfg.penaltyInLast5Type};
+  const LOW_THR=cfg.lowScoreThreshold??4;
   let relax=1.0;
   const out=[];
   const flatMode=(cfg.maleAccessoriesPerPage??0)+(cfg.femaleAccessoriesPerPage??0)>=24;
@@ -58,8 +59,8 @@ function sortProducts(products, config={}) {
   function best(pool){
     if(!pool.length)return null;
     const chunk=pool.topN(220);let b=null,bv=-Infinity;
-    for(const it of chunk){if(banned(it))continue;const v=sc(it);if(v>bv){bv=v;b=it;}}
-    if(!b)for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;}}
+    for(const it of chunk){if(banned(it))continue;if(it.score<LOW_THR)continue;const v=sc(it);if(v>bv){bv=v;b=it;}}
+    if(!b)for(const it of chunk){if(it.score<LOW_THR)continue;const v=sc(it);if(v>bv){bv=v;b=it;}}
     return b;
   }
   function commit(pool,it){
@@ -228,6 +229,14 @@ function sortProducts(products, config={}) {
     return null;
   }
   while(anyLeft()&&safety<400000){safety++;if(!drain())break;}
+
+  // Final pass: low-score items (score < LOW_THR) held back from main sort, placed at end by score desc
+  {
+    const tailPools=[P.womenAdults,P.menAdults,P.unisexAdults,P.girls,P.boys,P.babies,P.accW,P.accM,P.accU,P.accKids,P.accBaby,P.other];
+    const tail=[];for(const p of tailPools){let it;while((it=p.shift()))tail.push(it);}
+    tail.sort((a,b)=>b.score-a.score);
+    for(const it of tail)out.push(it);
+  }
 
   return out.map((item,i)=>({shopifyId:item.shopifyId,position:i+1,score:item.score,type:item.type,category:item.category}));
 }
