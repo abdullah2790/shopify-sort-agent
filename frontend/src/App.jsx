@@ -497,49 +497,105 @@ function SortApp() {
 }
 
 // ── Kolekcije Tab ─────────────────────────────────────────────────────────
-function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders }) {
-  // Group collections by folder; null = ungrouped
-  const folders = [...new Set(activeWatched.map(w => w.folder || null))].filter(Boolean).sort();
-  const ungrouped = activeWatched.filter(w => !w.folder);
-  const grouped = folders.map(f => ({ name: f, items: activeWatched.filter(w => w.folder === f) }));
+const FOLDER_COLORS = ["#4f6bed","#00a47c","#c4490c","#8456d4","#bf5af2","#d4693d","#2c7be5"];
+function folderColor(name) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return FOLDER_COLORS[Math.abs(h) % FOLDER_COLORS.length];
+}
 
+function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders }) {
+  const folders  = [...new Set(activeWatched.map(w => w.folder).filter(Boolean))].sort();
+  const ungrouped = activeWatched.filter(w => !w.folder);
+  const grouped   = folders.map(f => ({ name: f, items: activeWatched.filter(w => w.folder === f) }));
+  const allIds    = activeWatched.map(w => w.collection_id);
+  const allSelected = allIds.length > 0 && allIds.every(id => selectedCols.includes(id));
+  const someSelected = selectedCols.length > 0;
+
+  function toggleAll() {
+    setSelectedCols(allSelected ? [] : allIds);
+  }
+  function toggleOne(id) {
+    setSelectedCols(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
   function toggleFolder(name) {
     setCollapsedFolders(prev => ({ ...prev, [name]: !prev[name] }));
   }
 
-  function renderItem(item) {
+  function CollectionRow({ item }) {
     const isSorting = sorting === item.collection_id;
-    const hasOwn = !!item.collection_config;
+    const hasOwn    = !!item.collection_config;
+    const checked   = selectedCols.includes(item.collection_id);
+    const lastSort  = item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : null;
     return (
-      <ResourceItem id={item.collection_id} shortcutActions={[
-        { content:isSorting?"Sortira...":"Sortiraj", loading:isSorting, onAction:()=>runSort(item.collection_id, item.collection_title) },
-        { content:"Preview", onAction:()=>setPreviewModal({ collectionId: item.collection_id, title: item.collection_title }) },
-        { content:"Postavke", onAction:()=>setConfigModal(item.collection_id) },
-        { content:"Folder", onAction:()=>setFolderModal({ collectionId: item.collection_id, title: item.collection_title, currentFolder: item.folder || null }) },
-        { content:"Ukloni", destructive:true, onAction:()=>removeCollection(item.collection_id) },
-      ]}>
-        <HorizontalStack align="space-between" blockAlign="center">
-          <VerticalStack gap="100">
-            <HorizontalStack gap="200" blockAlign="center">
-              <Text fontWeight="semibold">{item.collection_title}</Text>
-              {hasOwn && <Badge tone="info">Vlastite postavke</Badge>}
-            </HorizontalStack>
-            <Text tone="subdued" variant="bodySm">
-              Zadnji sort: {item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : "Nikad"}
-            </Text>
-          </VerticalStack>
-          <Badge tone={item.last_sorted_at?"success":"attention"}>
-            {item.last_sorted_at?"Sortirano":"Čeka"}
-          </Badge>
-        </HorizontalStack>
-      </ResourceItem>
+      <div style={{
+        display:"flex", alignItems:"center", gap:"12px",
+        padding:"10px 14px", borderBottom:"1px solid #f1f2f3",
+        background: checked ? "#f6f7ff" : "white",
+        transition:"background 0.1s",
+      }}>
+        <input type="checkbox" checked={checked} onChange={()=>toggleOne(item.collection_id)}
+          style={{width:"15px",height:"15px",cursor:"pointer",flexShrink:0}} />
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap"}}>
+            <span style={{fontWeight:600,fontSize:"14px",color:"#202223"}}>{item.collection_title}</span>
+            {hasOwn && <span style={{fontSize:"11px",fontWeight:600,padding:"2px 7px",borderRadius:"10px",background:"#e8f0fd",color:"#3c5bd4"}}>Vlastite postavke</span>}
+            {item.folder && <span style={{fontSize:"11px",padding:"2px 7px",borderRadius:"10px",background:folderColor(item.folder)+"22",color:folderColor(item.folder),fontWeight:600}}>{item.folder}</span>}
+          </div>
+          {lastSort
+            ? <div style={{fontSize:"12px",color:"#8c9196",marginTop:"2px"}}>Zadnji sort: {lastSort}</div>
+            : <div style={{fontSize:"12px",color:"#b98900",marginTop:"2px"}}>Još nije sortirano</div>
+          }
+        </div>
+        <div style={{display:"flex",gap:"6px",flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <button onClick={()=>runSort(item.collection_id, item.collection_title)} disabled={isSorting}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:isSorting?"#f4f6f8":"white",cursor:isSorting?"default":"pointer",fontSize:"12px",fontWeight:600,color:isSorting?"#8c9196":"#202223"}}>
+            {isSorting ? "Sortira..." : "Sortiraj"}
+          </button>
+          <button onClick={()=>setPreviewModal({ collectionId: item.collection_id, title: item.collection_title })}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>
+            Preview
+          </button>
+          <button onClick={()=>setConfigModal(item.collection_id)}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>
+            ⚙ Postavke
+          </button>
+          <button onClick={()=>setFolderModal({ collectionId: item.collection_id, title: item.collection_title, currentFolder: item.folder || null })}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>
+            📁 Folder
+          </button>
+          <button onClick={()=>removeCollection(item.collection_id)}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #fed3d1",background:"#fff4f4",cursor:"pointer",fontSize:"12px",color:"#d72c0d"}}>
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function FolderSection({ name, items }) {
+    const collapsed = collapsedFolders[name];
+    const color = folderColor(name);
+    return (
+      <div style={{borderRadius:"10px",overflow:"hidden",border:"1px solid #e1e3e5",marginBottom:"12px"}}>
+        <button onClick={()=>toggleFolder(name)} style={{
+          width:"100%",display:"flex",alignItems:"center",gap:"10px",
+          padding:"11px 16px",background:`${color}11`,border:"none",
+          cursor:"pointer",textAlign:"left",borderBottom: collapsed ? "none" : `1px solid ${color}33`,
+        }}>
+          <span style={{width:"10px",height:"10px",borderRadius:"50%",background:color,flexShrink:0,display:"inline-block"}} />
+          <span style={{flex:1,fontWeight:700,fontSize:"14px",color:"#202223"}}>{name}</span>
+          <span style={{fontSize:"12px",fontWeight:600,padding:"2px 9px",borderRadius:"10px",background:color,color:"white"}}>{items.length}</span>
+          <span style={{fontSize:"13px",color:"#6d7175",marginLeft:"4px"}}>{collapsed ? "▶" : "▼"}</span>
+        </button>
+        {!collapsed && items.map(item => <CollectionRow key={item.collection_id} item={item} />)}
+      </div>
     );
   }
 
   return (
     <Card>
       <VerticalStack gap="400">
-        <HorizontalStack align="space-between">
+        <HorizontalStack align="space-between" blockAlign="center">
           <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
           <HorizontalStack gap="200">
             <Button variant="plain" loading={addingAll} onClick={()=>setConfirmAddAll(true)}>+ Dodaj sve</Button>
@@ -552,53 +608,45 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
             <Button onClick={()=>setAddModal(true)}>Dodaj kolekciju</Button>
           </EmptyState>
         ) : (
-          <VerticalStack gap="400">
-            {/* Grouped folders */}
+          <VerticalStack gap="0">
+            {/* Bulk action bar */}
+            <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 14px",background:"#f4f6f8",borderRadius:"8px",marginBottom:"12px",minHeight:"38px"}}>
+              <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                style={{width:"15px",height:"15px",cursor:"pointer"}} />
+              {someSelected ? (
+                <>
+                  <span style={{fontSize:"13px",color:"#202223"}}>{selectedCols.length} odabrano</span>
+                  <button onClick={()=>bulkRemove(false)}
+                    style={{padding:"4px 12px",borderRadius:"6px",border:"1px solid #fed3d1",background:"#fff4f4",cursor:"pointer",fontSize:"12px",color:"#d72c0d",fontWeight:600}}>
+                    Ukloni odabrane
+                  </button>
+                  <button onClick={()=>setSelectedCols([])}
+                    style={{padding:"4px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#6d7175"}}>
+                    Poništi
+                  </button>
+                </>
+              ) : (
+                <span style={{fontSize:"13px",color:"#8c9196"}}>
+                  {activeWatched.length} kolekcija ukupno
+                </span>
+              )}
+            </div>
+
+            {/* Folder sections */}
             {grouped.map(({ name, items }) => (
-              <VerticalStack key={name} gap="0">
-                <button
-                  onClick={() => toggleFolder(name)}
-                  style={{ display:"flex", alignItems:"center", gap:"8px", width:"100%", background:"#f4f6f8", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", textAlign:"left", marginBottom: collapsedFolders[name] ? "0" : "8px" }}
-                >
-                  <span style={{ fontSize:"14px", fontWeight:600, color:"#202223", flex:1 }}>
-                    📁 {name} <span style={{ fontWeight:400, color:"#6d7175", fontSize:"12px" }}>({items.length})</span>
-                  </span>
-                  <span style={{ color:"#6d7175", fontSize:"12px" }}>{collapsedFolders[name] ? "▶" : "▼"}</span>
-                </button>
-                {!collapsedFolders[name] && (
-                  <ResourceList
-                    idForItem={(item) => item.collection_id}
-                    items={items}
-                    selectedItems={selectedCols}
-                    onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
-                    selectable
-                    promotedBulkActions={[{ content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) }]}
-                    bulkActions={[{ content:"Ukloni sve kolekcije", destructive:true, onAction:()=>bulkRemove(true) }]}
-                    renderItem={renderItem}
-                  />
-                )}
-              </VerticalStack>
+              <FolderSection key={name} name={name} items={items} />
             ))}
 
-            {/* Ungrouped collections */}
+            {/* Ungrouped */}
             {ungrouped.length > 0 && (
-              <VerticalStack gap="0">
+              <div style={{borderRadius:"10px",overflow:"hidden",border:"1px solid #e1e3e5"}}>
                 {grouped.length > 0 && (
-                  <div style={{ fontSize:"12px", fontWeight:600, color:"#6d7175", padding:"4px 2px 6px", textTransform:"uppercase", letterSpacing:"0.5px" }}>
-                    Ostalo
+                  <div style={{padding:"9px 16px",background:"#f9fafb",borderBottom:"1px solid #e1e3e5",fontSize:"12px",fontWeight:700,color:"#6d7175",textTransform:"uppercase",letterSpacing:"0.5px"}}>
+                    Bez foldera
                   </div>
                 )}
-                <ResourceList
-                  idForItem={(item) => item.collection_id}
-                  items={ungrouped}
-                  selectedItems={selectedCols}
-                  onSelectionChange={(sel) => setSelectedCols(sel === "All" ? activeWatched.map(w => w.collection_id) : sel)}
-                  selectable
-                  promotedBulkActions={[{ content:"Ukloni odabrane", destructive:true, onAction:()=>bulkRemove(false) }]}
-                  bulkActions={[{ content:"Ukloni sve kolekcije", destructive:true, onAction:()=>bulkRemove(true) }]}
-                  renderItem={renderItem}
-                />
-              </VerticalStack>
+                {ungrouped.map(item => <CollectionRow key={item.collection_id} item={item} />)}
+              </div>
             )}
           </VerticalStack>
         )}
