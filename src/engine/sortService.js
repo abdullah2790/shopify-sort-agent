@@ -324,13 +324,15 @@ async function runSortPreview({ shopId, shopDomain, accessToken, collectionId, s
     rang,
     total: sorted.length,
     products: sorted.map(item => ({
-      position:  item.position,
-      shopifyId: item.shopifyId,
-      title:     titleMap.get(item.shopifyId)?.title || "",
-      category:  item.category,
-      type:      item.type,
-      color:     titleMap.get(item.shopifyId)?.color || "",
-      score:     item.score,
+      position:    item.position,
+      shopifyId:   item.shopifyId,
+      title:       titleMap.get(item.shopifyId)?.title || "",
+      category:    item.category,
+      type:        item.type,
+      color:       titleMap.get(item.shopifyId)?.color || "",
+      score:       item.score,
+      isAccessory: item.isAccessory || false,
+      isSprinkler: item.isSprinkler || false,
     })),
   };
 }
