@@ -343,11 +343,21 @@ app.post("/api/weather/read", async (req, res) => {
 });
 
 app.get("/api/logs", async (req, res) => {
-  const { shop, limit = 50 } = req.query;
+  const { shop, limit = 25, offset = 0, collectionId } = req.query;
   try {
     const s = await getShop(shop); if (!s) return res.status(404).json({ error: "Shop nije nađen" });
-    const r = await db.query(`SELECT * FROM sort_logs WHERE shop_id = $1 ORDER BY created_at DESC LIMIT $2`, [s.id, limit]);
-    const count = await db.query(`SELECT COUNT(*) FROM sort_logs WHERE shop_id = $1`, [s.id]);
+    const params = [s.id];
+    let where = "WHERE l.shop_id = $1";
+    if (collectionId) { params.push(collectionId); where += ` AND l.collection_id = $${params.length}`; }
+    const r = await db.query(
+      `SELECT l.*, w.collection_title FROM sort_logs l
+       LEFT JOIN watched_collections w ON w.shop_id = l.shop_id AND w.collection_id = l.collection_id
+       ${where} ORDER BY l.created_at DESC LIMIT $${params.length+1} OFFSET $${params.length+2}`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+    const count = await db.query(
+      `SELECT COUNT(*) FROM sort_logs l ${where}`, params
+    );
     res.json({ logs: r.rows, total: parseInt(count.rows[0].count) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

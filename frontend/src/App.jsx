@@ -362,11 +362,8 @@ function SortApp() {
         {/* ── Tab 5: Logovi ── */}
         {tab===5 && (
           <LogsTab
-            logs={logs}
-            logsTotal={logsTotal}
             watched={watched}
             shop={shop}
-            onRefresh={loadData}
             onError={setError}
           />
         )}
@@ -771,28 +768,61 @@ function CategoriesTab({ categories, shop, scoresRef, sprinklersRef, onSaved, on
 }
 
 // ── Logs Tab ────────────────────────────────────────────────────────────────
-function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
+const LOGS_PER_PAGE = 25;
+function LogsTab({ watched, shop, onError }) {
+  const [logs, setLogs]             = useState([]);
+  const [total, setTotal]           = useState(0);
+  const [page, setPage]             = useState(1);
+  const [filterCol, setFilterCol]   = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [expandedErr, setExpandedErr] = useState(null);
   const [cleanupDays, setCleanupDays] = useState("90");
-  const [cleaning, setCleaning] = useState(false);
+  const [cleaning, setCleaning]     = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const offset = (page - 1) * LOGS_PER_PAGE;
+  const totalPages = Math.ceil(total / LOGS_PER_PAGE);
+
+  async function fetchLogs(p = page, col = filterCol) {
+    setLoading(true);
+    try {
+      const off = (p - 1) * LOGS_PER_PAGE;
+      let url = `/api/logs?shop=${encodeURIComponent(shop)}&limit=${LOGS_PER_PAGE}&offset=${off}`;
+      if (col) url += `&collectionId=${encodeURIComponent(col)}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setLogs(d.logs || []);
+      setTotal(d.total || 0);
+    } catch (e) { onError(e.message || "Greška pri učitavanju logova."); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { fetchLogs(page, filterCol); }, [page, filterCol]);
+
+  function changeFilter(col) { setFilterCol(col); setPage(1); }
+  function changePage(p) { setPage(p); }
+
   async function doCleanup() {
-    setConfirmOpen(false);
-    setCleaning(true);
+    setConfirmOpen(false); setCleaning(true);
     try {
       const res = await fetch("/api/logs/cleanup", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ shop, olderThanDays: parseInt(cleanupDays) }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      await onRefresh();
+      setPage(1); fetchLogs(1, filterCol);
     } catch (e) { onError(e.message || "Greška pri čišćenju."); }
     finally { setCleaning(false); }
   }
 
-  const cleanupLabel = { "7":"7 dana", "30":"30 dana", "60":"60 dana", "90":"90 dana", "180":"180 dana" }[cleanupDays] || cleanupDays;
+  const colOptions = [
+    { label: "Sve kolekcije", value: "" },
+    ...watched.map(w => ({ label: w.collection_title || w.collection_id, value: w.collection_id })),
+  ];
+  const triggerLabel = { cron:"Automatski", manual:"Ručno", "manual-all":"Ručno (sve)" };
+  const cleanupLabel = { "7":"7 dana","30":"30 dana","60":"60 dana","90":"90 dana","180":"180 dana" }[cleanupDays] || cleanupDays;
 
   return (
     <VerticalStack gap="400">
@@ -800,20 +830,79 @@ function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
         <VerticalStack gap="400">
           <HorizontalStack align="space-between" blockAlign="center">
             <Text as="h2" variant="headingMd">Logovi sortiranja</Text>
-            <Text tone="subdued" variant="bodySm">Ukupno zapisa: {logsTotal}</Text>
+            <HorizontalStack gap="300" blockAlign="center">
+              <Text tone="subdued" variant="bodySm">Ukupno: {total}</Text>
+              <Button size="slim" onClick={() => fetchLogs(page, filterCol)} loading={loading}>Osvježi</Button>
+            </HorizontalStack>
           </HorizontalStack>
-          {logs.length===0 ? <Text tone="subdued">Nema logova.</Text> : (
-            <DataTable
-              columnContentTypes={["text","text","numeric","text","text"]}
-              headings={["Kolekcija","Trigger","Proizvoda","Status","Vrijeme"]}
-              rows={logs.map(log=>[
-                watched.find(w=>w.collection_id===log.collection_id)?.collection_title || log.collection_id || "Sve",
-                log.trigger,
-                log.products_sorted||0,
-                <Badge tone={log.status==="success"?"success":"critical"}>{log.status==="success"?"OK":"Greška"}</Badge>,
-                new Date(log.created_at).toLocaleString("bs-BA"),
-              ])}
+
+          {/* Filter po kolekciji */}
+          <div style={{maxWidth:"340px"}}>
+            <Select
+              label="Filtriraj po kolekciji"
+              options={colOptions}
+              value={filterCol}
+              onChange={changeFilter}
             />
+          </div>
+
+          {loading ? (
+            <div style={{textAlign:"center",padding:"20px"}}><Spinner size="small" /></div>
+          ) : logs.length === 0 ? (
+            <Text tone="subdued">Nema logova{filterCol ? " za ovu kolekciju" : ""}.</Text>
+          ) : (
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                <thead>
+                  <tr style={{borderBottom:"2px solid #e1e3e5",background:"#fafbfb"}}>
+                    {["Kolekcija","Trigger","Proizvoda","Trajanje","Status","Vrijeme"].map(h=>(
+                      <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#6d7175",fontSize:"11px",fontWeight:600,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log, i) => {
+                    const title = log.collection_title || watched.find(w=>w.collection_id===log.collection_id)?.collection_title || log.collection_id || "—";
+                    const isErr = log.status !== "success";
+                    const dur = log.duration_ms ? (log.duration_ms < 1000 ? `${log.duration_ms}ms` : `${(log.duration_ms/1000).toFixed(1)}s`) : "—";
+                    return (
+                      <React.Fragment key={log.id}>
+                        <tr style={{background:i%2===0?"white":"#fafbfb",borderBottom:"1px solid #f1f2f3",cursor:isErr&&log.error_message?"pointer":"default"}}
+                            onClick={()=>isErr&&log.error_message&&setExpandedErr(expandedErr===log.id?null:log.id)}>
+                          <td style={{padding:"7px 10px",maxWidth:"200px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{title}</td>
+                          <td style={{padding:"7px 10px",color:"#555"}}>{triggerLabel[log.trigger]||log.trigger}</td>
+                          <td style={{padding:"7px 10px",textAlign:"center"}}>{log.products_sorted||0}</td>
+                          <td style={{padding:"7px 10px",color:"#555"}}>{dur}</td>
+                          <td style={{padding:"7px 10px"}}>
+                            <Badge tone={isErr?"critical":"success"}>{isErr?"Greška":"OK"}</Badge>
+                            {isErr&&log.error_message&&<span style={{fontSize:"11px",color:"#6d7175",marginLeft:"4px"}}>▼</span>}
+                          </td>
+                          <td style={{padding:"7px 10px",color:"#8c9196",whiteSpace:"nowrap",fontSize:"12px"}}>
+                            {new Date(log.created_at).toLocaleString("bs-BA")}
+                          </td>
+                        </tr>
+                        {expandedErr===log.id&&(
+                          <tr style={{background:"#fff4f4"}}>
+                            <td colSpan={6} style={{padding:"8px 10px 10px 14px",color:"#d72c0d",fontSize:"12px",fontFamily:"monospace"}}>
+                              {log.error_message}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Paginacija */}
+          {totalPages > 1 && (
+            <HorizontalStack align="center" gap="300">
+              <Button size="slim" disabled={page===1} onClick={()=>changePage(page-1)}>‹ Prethodna</Button>
+              <Text variant="bodySm">Stranica {page} / {totalPages}</Text>
+              <Button size="slim" disabled={page===totalPages} onClick={()=>changePage(page+1)}>Sljedeća ›</Button>
+            </HorizontalStack>
           )}
         </VerticalStack>
       </Card>
@@ -839,18 +928,14 @@ function LogsTab({ logs, logsTotal, watched, shop, onRefresh, onError }) {
                 onChange={setCleanupDays}
               />
             </div>
-            <Button tone="critical" onClick={() => setConfirmOpen(true)} loading={cleaning}>Obriši</Button>
+            <Button tone="critical" onClick={()=>setConfirmOpen(true)} loading={cleaning}>Obriši</Button>
           </HorizontalStack>
         </VerticalStack>
       </Card>
 
-      <Modal
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title="Obriši logove"
-        primaryAction={{ content:"Da, obriši", destructive:true, loading:cleaning, onAction: doCleanup }}
-        secondaryActions={[{ content:"Odustani", onAction:() => setConfirmOpen(false) }]}
-      >
+      <Modal open={confirmOpen} onClose={()=>setConfirmOpen(false)} title="Obriši logove"
+        primaryAction={{ content:"Da, obriši", destructive:true, loading:cleaning, onAction:doCleanup }}
+        secondaryActions={[{ content:"Odustani", onAction:()=>setConfirmOpen(false) }]}>
         <Modal.Section>
           <Text>Bit će obrisani svi logovi stariji od <strong>{cleanupLabel}</strong>. Ova akcija se ne može poništiti. Jesi li siguran?</Text>
         </Modal.Section>
