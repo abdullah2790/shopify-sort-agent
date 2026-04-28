@@ -78,6 +78,7 @@ function SortApp() {
   const [confirmAddAll, setConfirmAddAll] = useState(false);
   const [folderModal, setFolderModal] = useState(null); // { collectionId, title, currentFolder }
   const [folderInput, setFolderInput] = useState("");
+  const [folderAction, setFolderAction] = useState(null); // { mode:"new"|"rename", oldName? }
   const [collapsedFolders, setCollapsedFolders] = useState({});
   const dirtyTabsRef = useRef({});
   const tabsContainerRef = useRef(null);
@@ -305,6 +306,13 @@ function SortApp() {
             collapsedFolders={collapsedFolders}
             setCollapsedFolders={setCollapsedFolders}
             assignFolder={assignFolder}
+            onNewFolder={() => { setFolderAction({mode:"new"}); setFolderInput(""); }}
+            onRenameFolder={(name) => { setFolderAction({mode:"rename",oldName:name}); setFolderInput(name); }}
+            onDeleteFolder={(name, items) => {
+              if (window.confirm(`Obrisati folder "${name}"? Kolekcije ostaju, samo se uklanjaju iz foldera.`)) {
+                items.forEach(item => assignFolder(item.collection_id, null));
+              }
+            }}
           />
         )}
 
@@ -493,6 +501,39 @@ function SortApp() {
           </Modal>
         );
       })()}
+
+      {/* Folder new/rename modal */}
+      {folderAction && (
+        <Modal
+          open
+          onClose={() => setFolderAction(null)}
+          title={folderAction.mode === "new" ? "Novi folder" : `Preimenuj folder "${folderAction.oldName}"`}
+          primaryAction={{
+            content: folderAction.mode === "new" ? "Kreiraj" : "Spremi",
+            onAction: () => {
+              const name = folderInput.trim();
+              if (!name) return;
+              if (folderAction.mode === "rename" && folderAction.oldName) {
+                // Rename: reassign all collections from oldName to new name
+                watched.filter(w => w.active && w.folder === folderAction.oldName)
+                  .forEach(w => assignFolder(w.collection_id, name));
+              }
+              setFolderAction(null);
+            }
+          }}
+          secondaryActions={[{ content: "Odustani", onAction: () => setFolderAction(null) }]}
+        >
+          <Modal.Section>
+            <TextField
+              label="Naziv foldera"
+              value={folderInput}
+              onChange={setFolderInput}
+              placeholder="npr. Muški, Ženski, Djeca..."
+              autoComplete="off"
+            />
+          </Modal.Section>
+        </Modal>
+      )}
     </Page>
   );
 }
@@ -504,7 +545,7 @@ function folderColor(name) {
   return FOLDER_COLORS[Math.abs(h) % FOLDER_COLORS.length];
 }
 
-function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders, assignFolder }) {
+function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders, assignFolder, onNewFolder, onRenameFolder, onDeleteFolder }) {
   const folders   = [...new Set(activeWatched.map(w => w.folder).filter(Boolean))].sort();
   const ungrouped = activeWatched.filter(w => !w.folder);
   const grouped   = folders.map(f => ({ name: f, items: activeWatched.filter(w => w.folder === f) }));
@@ -580,8 +621,6 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
             style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>Preview</button>
           <button onClick={()=>setConfigModal(item.collection_id)}
             style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>⚙ Postavke</button>
-          <button onClick={()=>setFolderModal({collectionId:item.collection_id,title:item.collection_title,currentFolder:item.folder||null})}
-            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>📁 Folder</button>
           <button onClick={()=>removeCollection(item.collection_id)}
             style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #fed3d1",background:"#fff4f4",cursor:"pointer",fontSize:"12px",color:"#d72c0d"}}>✕</button>
         </div>
@@ -590,22 +629,24 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
   }
 
   function FolderSection({ name, items }) {
-    const collapsed  = collapsedFolders[name];
-    const color      = folderColor(name);
-    const isOver     = dropTarget === name;
+    const collapsed = collapsedFolders[name];
+    const color     = folderColor(name);
+    const isOver    = dropTarget === name;
     return (
-      <div style={{borderRadius:"10px",overflow:"hidden",border: isOver ? `2px solid ${color}` : "1px solid #e1e3e5",marginBottom:"12px",transition:"border 0.15s"}}
-           onDragOver={e=>onFolderDragOver(e,name)}
-           onDragLeave={onFolderDragLeave}
-           onDrop={e=>onFolderDrop(e,name)}>
-        <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"11px 16px",background:isOver?`${color}22`:`${color}11`,borderBottom:collapsed?"none":`1px solid ${color}33`,transition:"background 0.15s"}}>
-          <button onClick={()=>toggleFolder(name)} style={{display:"flex",alignItems:"center",gap:"10px",flex:1,background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
+      <div style={{borderRadius:"10px",overflow:"hidden",border:isOver?`2px solid ${color}`:"1px solid #e1e3e5",marginBottom:"12px",transition:"border 0.15s"}}
+           onDragOver={e=>onFolderDragOver(e,name)} onDragLeave={onFolderDragLeave} onDrop={e=>onFolderDrop(e,name)}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"10px 14px",background:isOver?`${color}22`:`${color}11`,borderBottom:collapsed?"none":`1px solid ${color}33`,transition:"background 0.15s"}}>
+          <button onClick={()=>toggleFolder(name)} style={{display:"flex",alignItems:"center",gap:"8px",flex:1,background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
             <span style={{width:"10px",height:"10px",borderRadius:"50%",background:color,flexShrink:0,display:"inline-block"}} />
-            <span style={{flex:1,fontWeight:700,fontSize:"14px",color:"#202223"}}>{name}</span>
+            <span style={{fontWeight:700,fontSize:"14px",color:"#202223"}}>{name}</span>
           </button>
           {isOver && dragId && <span style={{fontSize:"12px",color:color,fontWeight:600}}>Pusti ovdje →</span>}
-          <span style={{fontSize:"12px",fontWeight:600,padding:"2px 9px",borderRadius:"10px",background:color,color:"white"}}>{items.length}</span>
-          <button onClick={()=>toggleFolder(name)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"#6d7175",padding:"0 4px"}}>{collapsed?"▶":"▼"}</button>
+          <span style={{fontSize:"12px",fontWeight:600,padding:"2px 8px",borderRadius:"10px",background:color,color:"white",flexShrink:0}}>{items.length}</span>
+          <button onClick={()=>onRenameFolder(name)} title="Preimenuj folder"
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"#6d7175",padding:"2px 5px",borderRadius:"4px"}} onMouseOver={e=>e.target.style.background="#e1e3e5"} onMouseOut={e=>e.target.style.background="none"}>✏</button>
+          <button onClick={()=>onDeleteFolder(name,items)} title="Obriši folder"
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"#d72c0d",padding:"2px 5px",borderRadius:"4px"}} onMouseOver={e=>e.target.style.background="#fff0f0"} onMouseOut={e=>e.target.style.background="none"}>✕</button>
+          <button onClick={()=>toggleFolder(name)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"12px",color:"#6d7175",padding:"2px 4px"}}>{collapsed?"▶":"▼"}</button>
         </div>
         {!collapsed && items.map(item=><CollectionRow key={item.collection_id} item={item}/>)}
       </div>
@@ -618,6 +659,7 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
         <HorizontalStack align="space-between" blockAlign="center">
           <Text as="h2" variant="headingMd">Praćene kolekcije</Text>
           <HorizontalStack gap="200">
+            <Button variant="plain" onClick={onNewFolder}>+ Novi folder</Button>
             <Button variant="plain" loading={addingAll} onClick={()=>setConfirmAddAll(true)}>+ Dodaj sve</Button>
             <Button variant="plain" onClick={()=>setAddModal(true)}>+ Dodaj</Button>
           </HorizontalStack>
