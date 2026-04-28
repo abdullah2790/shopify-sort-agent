@@ -39,7 +39,6 @@ function sortProducts(products, config={}) {
   const LOW_THR=cfg.lowScoreThreshold??4;
   let relax=1.0;
   const out=[];
-  const flatMode=(cfg.maleAccessoriesPerPage??0)+(cfg.femaleAccessoriesPerPage??0)>=24;
   const ACC_ORDER=((cfg.accessoryCategoryOrder?.length?cfg.accessoryCategoryOrder:cfg.sprinklerCategoryOrder?.length?cfg.sprinklerCategoryOrder:cfg.accessoryCategories)||[]).map(normCat);
 
   function banned(it){return out.length<cfg.banTopN&&BANNED.has(it.normCategory);}
@@ -52,9 +51,7 @@ function sortProducts(products, config={}) {
     if(p3){if(gcat(it.normCategory)===gcat(p3.normCategory))pen+=PEN.c3*relax;if(gcolor(it.color)===gcolor(p3.color))pen+=PEN.col3*relax;if(it.type===p3.type)pen+=PEN.t3*relax;}
     if(p4){if(gcat(it.normCategory)===gcat(p4.normCategory))pen+=PEN.c4*relax;if(gcolor(it.color)===gcolor(p4.color))pen+=PEN.col4*relax;if(it.type===p4.type)pen+=PEN.t4*relax;}
     if(p5){if(gcat(it.normCategory)===gcat(p5.normCategory))pen+=PEN.c5*relax;if(gcolor(it.color)===gcolor(p5.color))pen+=PEN.col5*relax;if(it.type===p5.type)pen+=PEN.t5*relax;}
-    const pIdx=ACC_ORDER.indexOf(it.normCategory);
-    const base=flatMode?(ACC_ORDER.length>0&&pIdx>=0?ACC_ORDER.length-pIdx:0):it.score;
-    return base-pen+(Math.random()-0.5)*cfg.jitter;
+    return it.score-pen+(Math.random()-0.5)*cfg.jitter;
   }
   function best(pool){
     if(!pool.length)return null;
@@ -172,15 +169,22 @@ function sortProducts(products, config={}) {
       return p;
     })();
 
-    // Accessories-only mode: kada accessories kvota pokriva cijelu stranicu
+    // Accessories-only mode: random redoslijed, bez score-a, samo izbjegavaj istu kategoriju uzastopno
     if(nAW+nAM>=24){
-      const allPools=Object.values(P);
-      for(let i=0;i<pat.length;i++){
-        let b=null,bv=-Infinity,bp=null;
-        for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){if(banned(it))continue;const v=sc(it);if(v>bv){bv=v;b=it;bp=pool;}}}
-        if(!b){for(const pool of allPools){if(!pool.length)continue;const chunk=pool.topN(80);for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;bp=pool;}}}}
-        if(!b)return;
-        commit(bp,b);
+      const avail=[];
+      for(const pool of Object.values(P)){
+        if(!pool.length)continue;
+        pool.topN(Math.min(pool.length,9999)).forEach(it=>avail.push({it,pool}));
+      }
+      // Shuffle
+      for(let i=avail.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[avail[i],avail[j]]=[avail[j],avail[i]];}
+      // Place with category-consecutive check
+      let lastCat=out.at(-1)?.normCategory??"";
+      for(let i=0;i<pat.length&&avail.length>0;i++){
+        const idx=avail.findIndex(({it})=>it.normCategory!==lastCat);
+        const {it,pool}=avail.splice(idx===-1?0:idx,1)[0];
+        commit(pool,it);
+        lastCat=it.normCategory;
       }
       return;
     }
