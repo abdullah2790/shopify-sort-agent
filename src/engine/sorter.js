@@ -62,24 +62,6 @@ function sortProducts(products, config={}) {
     if(!b)for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;}}
     return b;
   }
-  // Raw-score pick respecting type/category skip constraints — used in drain to avoid score inversions
-  function drainBest(pool,skipType,skipCat){
-    if(!pool.length)return null;
-    const chunk=pool.topN(220);
-    for(const it of chunk){
-      if(banned(it))continue;
-      if(skipType&&it.type===skipType)continue;
-      if(skipCat&&it.normCategory===skipCat)continue;
-      return it;
-    }
-    // Fallback: ignore banned if nothing passed
-    for(const it of chunk){
-      if(skipType&&it.type===skipType)continue;
-      if(skipCat&&it.normCategory===skipCat)continue;
-      return it;
-    }
-    return null;
-  }
   function commit(pool,it){
     const p=out.at(-1)??null;
     const same=p&&gcat(it.normCategory)===gcat(p.normCategory)&&gcolor(it.color)===gcolor(p.color)&&it.type===p.type;
@@ -242,14 +224,7 @@ function sortProducts(products, config={}) {
     const ptr=lks(cfg.maxSameTypeRun,x=>x?.type),pcr=lks(cfg.maxSameCategoryRun,x=>x?.normCategory);
     const pt=out.at(-1)?.type??"",pc=out.at(-1)?.normCategory??"";
     const pools=[P.womenAdults,P.menAdults,P.unisexAdults,P.girls,P.boys,P.babies,P.accW,P.accM,P.accU,P.accKids,P.accBaby,P.other];
-    // Drain always picks by raw score; modes only differ in which type/cat they skip
-    for(const mode of[1,2,3]){
-      const st=mode===1&&ptr?pt:null;
-      const sc2=mode===2&&pcr?pc:null;
-      let bi=null,bp=null,bv=-Infinity;
-      for(const pool of pools){const it=drainBest(pool,st,sc2);if(!it)continue;if(it.score>bv){bv=it.score;bi=it;bp=pool;}}
-      if(bi){commit(bp,bi);return bi;}
-    }
+    for(const mode of[1,2,3]){let bi=null,bp=null,bv=-Infinity;for(const pool of pools){const it=best(pool);if(!it)continue;if(mode===1&&ptr&&it.type===pt)continue;if(mode===2&&pcr&&it.normCategory===pc)continue;const v=sc(it);if(v>bv){bv=v;bi=it;bp=pool;}}if(bi){commit(bp,bi);return bi;}}
     for(const sp of[P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids,P.sprAccBaby]){const it=sp.shift();if(it){commit(null,it);return it;}}
     return null;
   }
