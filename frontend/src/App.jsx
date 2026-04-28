@@ -304,6 +304,7 @@ function SortApp() {
             setFolderModal={(item) => { setFolderModal(item); setFolderInput(item.currentFolder || ""); }}
             collapsedFolders={collapsedFolders}
             setCollapsedFolders={setCollapsedFolders}
+            assignFolder={assignFolder}
           />
         )}
 
@@ -503,22 +504,33 @@ function folderColor(name) {
   return FOLDER_COLORS[Math.abs(h) % FOLDER_COLORS.length];
 }
 
-function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders }) {
-  const folders  = [...new Set(activeWatched.map(w => w.folder).filter(Boolean))].sort();
+function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols, runSort, setPreviewModal, setConfigModal, removeCollection, bulkRemove, addingAll, setConfirmAddAll, setAddModal, setFolderModal, collapsedFolders, setCollapsedFolders, assignFolder }) {
+  const folders   = [...new Set(activeWatched.map(w => w.folder).filter(Boolean))].sort();
   const ungrouped = activeWatched.filter(w => !w.folder);
   const grouped   = folders.map(f => ({ name: f, items: activeWatched.filter(w => w.folder === f) }));
   const allIds    = activeWatched.map(w => w.collection_id);
   const allSelected = allIds.length > 0 && allIds.every(id => selectedCols.includes(id));
   const someSelected = selectedCols.length > 0;
 
-  function toggleAll() {
-    setSelectedCols(allSelected ? [] : allIds);
+  const [dragId, setDragId]             = useState(null);
+  const [dropTarget, setDropTarget]     = useState(null); // folder name or "__none__"
+
+  function toggleAll()  { setSelectedCols(allSelected ? [] : allIds); }
+  function toggleOne(id){ setSelectedCols(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev,id]); }
+  function toggleFolder(name){ setCollapsedFolders(prev=>({...prev,[name]:!prev[name]})); }
+
+  function onDragStart(e, id) {
+    e.dataTransfer.effectAllowed = "move";
+    setDragId(id);
   }
-  function toggleOne(id) {
-    setSelectedCols(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
-  function toggleFolder(name) {
-    setCollapsedFolders(prev => ({ ...prev, [name]: !prev[name] }));
+  function onDragEnd() { setDragId(null); setDropTarget(null); }
+
+  function onFolderDragOver(e, target) { e.preventDefault(); e.dataTransfer.dropEffect="move"; setDropTarget(target); }
+  function onFolderDragLeave()         { setDropTarget(null); }
+  function onFolderDrop(e, target)     {
+    e.preventDefault();
+    if (dragId) assignFolder(dragId, target === "__none__" ? null : target);
+    setDragId(null); setDropTarget(null);
   }
 
   function CollectionRow({ item }) {
@@ -526,68 +538,69 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
     const hasOwn    = !!item.collection_config;
     const checked   = selectedCols.includes(item.collection_id);
     const lastSort  = item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : null;
+    const isDragging = dragId === item.collection_id;
     return (
-      <div style={{
-        display:"flex", alignItems:"center", gap:"12px",
-        padding:"10px 14px", borderBottom:"1px solid #f1f2f3",
-        background: checked ? "#f6f7ff" : "white",
-        transition:"background 0.1s",
-      }}>
+      <div
+        draggable
+        onDragStart={e=>onDragStart(e, item.collection_id)}
+        onDragEnd={onDragEnd}
+        style={{
+          display:"flex", alignItems:"center", gap:"12px",
+          padding:"10px 14px", borderBottom:"1px solid #f1f2f3",
+          background: checked ? "#f6f7ff" : "white",
+          opacity: isDragging ? 0.4 : 1,
+          transition:"opacity 0.15s, background 0.1s",
+          cursor:"grab",
+        }}>
+        <span style={{color:"#c4c9d4",fontSize:"16px",flexShrink:0,cursor:"grab",userSelect:"none"}}>⠿</span>
         <input type="checkbox" checked={checked} onChange={()=>toggleOne(item.collection_id)}
           style={{width:"15px",height:"15px",cursor:"pointer",flexShrink:0}} />
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap"}}>
             <span style={{fontWeight:600,fontSize:"14px",color:"#202223"}}>{item.collection_title}</span>
             {hasOwn && <span style={{fontSize:"11px",fontWeight:600,padding:"2px 7px",borderRadius:"10px",background:"#e8f0fd",color:"#3c5bd4"}}>Vlastite postavke</span>}
-            {item.folder && <span style={{fontSize:"11px",padding:"2px 7px",borderRadius:"10px",background:folderColor(item.folder)+"22",color:folderColor(item.folder),fontWeight:600}}>{item.folder}</span>}
           </div>
           {lastSort
             ? <div style={{fontSize:"12px",color:"#8c9196",marginTop:"2px"}}>Zadnji sort: {lastSort}</div>
-            : <div style={{fontSize:"12px",color:"#b98900",marginTop:"2px"}}>Još nije sortirano</div>
-          }
+            : <div style={{fontSize:"12px",color:"#b98900",marginTop:"2px"}}>Još nije sortirano</div>}
         </div>
         <div style={{display:"flex",gap:"6px",flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
           <button onClick={()=>runSort(item.collection_id, item.collection_title)} disabled={isSorting}
             style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:isSorting?"#f4f6f8":"white",cursor:isSorting?"default":"pointer",fontSize:"12px",fontWeight:600,color:isSorting?"#8c9196":"#202223"}}>
-            {isSorting ? "Sortira..." : "Sortiraj"}
+            {isSorting?"Sortira...":"Sortiraj"}
           </button>
-          <button onClick={()=>setPreviewModal({ collectionId: item.collection_id, title: item.collection_title })}
-            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>
-            Preview
-          </button>
+          <button onClick={()=>setPreviewModal({collectionId:item.collection_id,title:item.collection_title})}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>Preview</button>
           <button onClick={()=>setConfigModal(item.collection_id)}
-            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>
-            ⚙ Postavke
-          </button>
-          <button onClick={()=>setFolderModal({ collectionId: item.collection_id, title: item.collection_title, currentFolder: item.folder || null })}
-            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>
-            📁 Folder
-          </button>
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>⚙ Postavke</button>
+          <button onClick={()=>setFolderModal({collectionId:item.collection_id,title:item.collection_title,currentFolder:item.folder||null})}
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #c9cccf",background:"white",cursor:"pointer",fontSize:"12px",color:"#202223"}}>📁 Folder</button>
           <button onClick={()=>removeCollection(item.collection_id)}
-            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #fed3d1",background:"#fff4f4",cursor:"pointer",fontSize:"12px",color:"#d72c0d"}}>
-            ✕
-          </button>
+            style={{padding:"5px 10px",borderRadius:"6px",border:"1px solid #fed3d1",background:"#fff4f4",cursor:"pointer",fontSize:"12px",color:"#d72c0d"}}>✕</button>
         </div>
       </div>
     );
   }
 
   function FolderSection({ name, items }) {
-    const collapsed = collapsedFolders[name];
-    const color = folderColor(name);
+    const collapsed  = collapsedFolders[name];
+    const color      = folderColor(name);
+    const isOver     = dropTarget === name;
     return (
-      <div style={{borderRadius:"10px",overflow:"hidden",border:"1px solid #e1e3e5",marginBottom:"12px"}}>
-        <button onClick={()=>toggleFolder(name)} style={{
-          width:"100%",display:"flex",alignItems:"center",gap:"10px",
-          padding:"11px 16px",background:`${color}11`,border:"none",
-          cursor:"pointer",textAlign:"left",borderBottom: collapsed ? "none" : `1px solid ${color}33`,
-        }}>
-          <span style={{width:"10px",height:"10px",borderRadius:"50%",background:color,flexShrink:0,display:"inline-block"}} />
-          <span style={{flex:1,fontWeight:700,fontSize:"14px",color:"#202223"}}>{name}</span>
+      <div style={{borderRadius:"10px",overflow:"hidden",border: isOver ? `2px solid ${color}` : "1px solid #e1e3e5",marginBottom:"12px",transition:"border 0.15s"}}
+           onDragOver={e=>onFolderDragOver(e,name)}
+           onDragLeave={onFolderDragLeave}
+           onDrop={e=>onFolderDrop(e,name)}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"11px 16px",background:isOver?`${color}22`:`${color}11`,borderBottom:collapsed?"none":`1px solid ${color}33`,transition:"background 0.15s"}}>
+          <button onClick={()=>toggleFolder(name)} style={{display:"flex",alignItems:"center",gap:"10px",flex:1,background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
+            <span style={{width:"10px",height:"10px",borderRadius:"50%",background:color,flexShrink:0,display:"inline-block"}} />
+            <span style={{flex:1,fontWeight:700,fontSize:"14px",color:"#202223"}}>{name}</span>
+          </button>
+          {isOver && dragId && <span style={{fontSize:"12px",color:color,fontWeight:600}}>Pusti ovdje →</span>}
           <span style={{fontSize:"12px",fontWeight:600,padding:"2px 9px",borderRadius:"10px",background:color,color:"white"}}>{items.length}</span>
-          <span style={{fontSize:"13px",color:"#6d7175",marginLeft:"4px"}}>{collapsed ? "▶" : "▼"}</span>
-        </button>
-        {!collapsed && items.map(item => <CollectionRow key={item.collection_id} item={item} />)}
+          <button onClick={()=>toggleFolder(name)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"#6d7175",padding:"0 4px"}}>{collapsed?"▶":"▼"}</button>
+        </div>
+        {!collapsed && items.map(item=><CollectionRow key={item.collection_id} item={item}/>)}
       </div>
     );
   }
@@ -637,15 +650,16 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
               <FolderSection key={name} name={name} items={items} />
             ))}
 
-            {/* Ungrouped */}
-            {ungrouped.length > 0 && (
-              <div style={{borderRadius:"10px",overflow:"hidden",border:"1px solid #e1e3e5"}}>
-                {grouped.length > 0 && (
-                  <div style={{padding:"9px 16px",background:"#f9fafb",borderBottom:"1px solid #e1e3e5",fontSize:"12px",fontWeight:700,color:"#6d7175",textTransform:"uppercase",letterSpacing:"0.5px"}}>
-                    Bez foldera
-                  </div>
-                )}
-                {ungrouped.map(item => <CollectionRow key={item.collection_id} item={item} />)}
+            {/* Ungrouped — also a drop target */}
+            {(ungrouped.length > 0 || (dragId && dropTarget==="__none__")) && (
+              <div style={{borderRadius:"10px",overflow:"hidden",border:dropTarget==="__none__"?"2px dashed #c9cccf":"1px solid #e1e3e5",transition:"border 0.15s"}}
+                   onDragOver={e=>onFolderDragOver(e,"__none__")}
+                   onDragLeave={onFolderDragLeave}
+                   onDrop={e=>onFolderDrop(e,"__none__")}>
+                <div style={{padding:"9px 16px",background:dropTarget==="__none__"?"#f0f0f0":"#f9fafb",borderBottom:"1px solid #e1e3e5",fontSize:"12px",fontWeight:700,color:"#6d7175",textTransform:"uppercase",letterSpacing:"0.5px",transition:"background 0.15s"}}>
+                  {dropTarget==="__none__"&&dragId ? "↓ Ukloni iz foldera" : "Bez foldera"}
+                </div>
+                {ungrouped.map(item=><CollectionRow key={item.collection_id} item={item}/>)}
               </div>
             )}
           </VerticalStack>
