@@ -580,15 +580,11 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
     const checked    = selectedCols.includes(item.collection_id);
     const lastSort   = item.last_sorted_at ? new Date(item.last_sorted_at).toLocaleString("bs-BA") : null;
     const isDragging = dragId === item.collection_id;
-    const fromHandle = useRef(false);
+    const rowRef = useRef(null);
     return (
       <div
-        draggable
-        onDragStart={e => {
-          if (!fromHandle.current) { e.preventDefault(); return; }
-          fromHandle.current = false;
-          onDragStart(e, item.collection_id);
-        }}
+        ref={rowRef}
+        onDragStart={e => onDragStart(e, item.collection_id)}
         onDragEnd={onDragEnd}
         style={{
           display:"flex", alignItems:"center", gap:"12px",
@@ -598,8 +594,9 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
           transition:"opacity 0.15s, background 0.1s",
         }}>
         <span
-          onMouseDown={() => { fromHandle.current = true; }}
-          onMouseUp={() => { fromHandle.current = false; }}
+          onMouseDown={() => rowRef.current?.setAttribute("draggable","true")}
+          onMouseUp={()   => rowRef.current?.setAttribute("draggable","false")}
+          onMouseLeave={() => rowRef.current?.setAttribute("draggable","false")}
           style={{color:"#c4c9d4",fontSize:"16px",flexShrink:0,cursor:"grab",userSelect:"none",padding:"0 4px"}}>⠿</span>
         <input type="checkbox" checked={checked} onChange={()=>toggleOne(item.collection_id)}
           style={{width:"15px",height:"15px",cursor:"pointer",flexShrink:0}} />
