@@ -62,6 +62,13 @@ function sortProducts(products, config={}) {
     if(!b)for(const it of chunk){const v=sc(it);if(v>bv){bv=v;b=it;}}
     return b;
   }
+  // Raw-score pick (no penalty) — used in drain mode 3 to avoid low-score items jumping ahead
+  function topOf(pool){
+    if(!pool.length)return null;
+    const chunk=pool.topN(220);
+    for(const it of chunk){if(!banned(it))return it;}
+    return chunk[0]??null;
+  }
   function commit(pool,it){
     const p=out.at(-1)??null;
     const same=p&&gcat(it.normCategory)===gcat(p.normCategory)&&gcolor(it.color)===gcolor(p.color)&&it.type===p.type;
@@ -223,7 +230,7 @@ function sortProducts(products, config={}) {
     const ptr=lks(cfg.maxSameTypeRun,x=>x?.type),pcr=lks(cfg.maxSameCategoryRun,x=>x?.normCategory);
     const pt=out.at(-1)?.type??"",pc=out.at(-1)?.normCategory??"";
     const pools=[P.womenAdults,P.menAdults,P.unisexAdults,P.girls,P.boys,P.babies,P.accW,P.accM,P.accU,P.accKids,P.accBaby,P.other];
-    for(const mode of[1,2,3]){let bi=null,bp=null,bv=-Infinity;for(const pool of pools){const it=best(pool);if(!it)continue;if(mode===1&&ptr&&it.type===pt)continue;if(mode===2&&pcr&&it.normCategory===pc)continue;const v=sc(it);if(v>bv){bv=v;bi=it;bp=pool;}}if(bi){commit(bp,bi);return bi;}}
+    for(const mode of[1,2,3]){let bi=null,bp=null,bv=-Infinity;for(const pool of pools){const it=mode===3?topOf(pool):best(pool);if(!it)continue;if(mode===1&&ptr&&it.type===pt)continue;if(mode===2&&pcr&&it.normCategory===pc)continue;const v=mode===3?it.score:sc(it);if(v>bv){bv=v;bi=it;bp=pool;}}if(bi){commit(bp,bi);return bi;}}
     for(const sp of[P.sprAccW,P.sprAccM,P.sprAccU,P.sprAccKids,P.sprAccBaby]){const it=sp.shift();if(it){commit(null,it);return it;}}
     return null;
   }
