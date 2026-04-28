@@ -306,7 +306,7 @@ function SortApp() {
             collapsedFolders={collapsedFolders}
             setCollapsedFolders={setCollapsedFolders}
             assignFolder={assignFolder}
-            onNewFolder={() => { setFolderAction({mode:"new"}); setFolderInput(""); }}
+            onNewFolder={() => { setFolderAction({mode:"new", selectedIds: selectedCols.length ? [...selectedCols] : null}); setFolderInput(""); }}
             onRenameFolder={(name) => { setFolderAction({mode:"rename",oldName:name}); setFolderInput(name); }}
             onDeleteFolder={(name, items) => {
               if (window.confirm(`Obrisati folder "${name}"? Kolekcije ostaju, samo se uklanjaju iz foldera.`)) {
@@ -510,11 +510,16 @@ function SortApp() {
           title={folderAction.mode === "new" ? "Novi folder" : `Preimenuj folder "${folderAction.oldName}"`}
           primaryAction={{
             content: folderAction.mode === "new" ? "Kreiraj" : "Spremi",
+            disabled: !folderInput.trim(),
             onAction: () => {
               const name = folderInput.trim();
               if (!name) return;
-              if (folderAction.mode === "rename" && folderAction.oldName) {
-                // Rename: reassign all collections from oldName to new name
+              if (folderAction.mode === "new") {
+                const targets = folderAction.selectedIds?.length
+                  ? folderAction.selectedIds
+                  : watched.filter(w => w.active && !w.folder).map(w => w.collection_id);
+                targets.forEach(id => assignFolder(id, name));
+              } else if (folderAction.mode === "rename" && folderAction.oldName) {
                 watched.filter(w => w.active && w.folder === folderAction.oldName)
                   .forEach(w => assignFolder(w.collection_id, name));
               }
@@ -524,13 +529,24 @@ function SortApp() {
           secondaryActions={[{ content: "Odustani", onAction: () => setFolderAction(null) }]}
         >
           <Modal.Section>
-            <TextField
-              label="Naziv foldera"
-              value={folderInput}
-              onChange={setFolderInput}
-              placeholder="npr. Muški, Ženski, Djeca..."
-              autoComplete="off"
-            />
+            <VerticalStack gap="300">
+              <TextField
+                label="Naziv foldera"
+                value={folderInput}
+                onChange={setFolderInput}
+                placeholder="npr. Muški, Ženski, Djeca..."
+                autoComplete="off"
+              />
+              {folderAction.mode === "new" && (
+                <Text tone="subdued" variant="bodySm">
+                  {folderAction.selectedIds?.length
+                    ? `${folderAction.selectedIds.length} odabranih kolekcija bit će dodano u folder.`
+                    : watched.filter(w => w.active && !w.folder).length > 0
+                      ? `Kolekcije bez foldera (${watched.filter(w=>w.active&&!w.folder).length}) bit će dodane. Ili odaberi specific kolekcije checkboxima prije kreiranja.`
+                      : "Sve kolekcije su već u folderima. Odaberi kolekcije checkboxima pa klikni + Novi folder."}
+                </Text>
+              )}
+            </VerticalStack>
           </Modal.Section>
         </Modal>
       )}
