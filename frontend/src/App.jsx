@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import {
   AppProvider, Page, Card, Tabs, ResourceList, ResourceItem,
   Text, Button, Badge, Banner, Spinner, Select,
@@ -889,6 +889,7 @@ function LogsTab({ watched, shop, onError }) {
                           </tr>
                         )}
                       </React.Fragment>
+
                     );
                   })}
                 </tbody>
