@@ -541,9 +541,6 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
     const isDragging = dragId === item.collection_id;
     return (
       <div
-        draggable
-        onDragStart={e=>{ if(!e.target.closest("[data-drag-handle]")){e.preventDefault();return;} onDragStart(e,item.collection_id); }}
-        onDragEnd={onDragEnd}
         style={{
           display:"flex", alignItems:"center", gap:"12px",
           padding:"10px 14px", borderBottom:"1px solid #f1f2f3",
@@ -551,7 +548,11 @@ function CollectionsTab({ activeWatched, sorting, selectedCols, setSelectedCols,
           opacity: isDragging ? 0.4 : 1,
           transition:"opacity 0.15s, background 0.1s",
         }}>
-        <span data-drag-handle style={{color:"#c4c9d4",fontSize:"16px",flexShrink:0,cursor:"grab",userSelect:"none",padding:"0 2px"}}>⠿</span>
+        <span
+          draggable
+          onDragStart={e=>{ e.stopPropagation(); onDragStart(e, item.collection_id); }}
+          onDragEnd={e=>{ e.stopPropagation(); onDragEnd(); }}
+          style={{color:"#c4c9d4",fontSize:"16px",flexShrink:0,cursor:"grab",userSelect:"none",padding:"0 4px"}}>⠿</span>
         <input type="checkbox" checked={checked} onChange={()=>toggleOne(item.collection_id)}
           style={{width:"15px",height:"15px",cursor:"pointer",flexShrink:0}} />
         <div style={{flex:1,minWidth:0}}>
