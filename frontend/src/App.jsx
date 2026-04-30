@@ -1956,6 +1956,7 @@ function WeatherTab({ weatherConfig, shop, onSaved, onError, onSuccess, onDirtyC
                 </div>
                 <Text variant="bodySm" tone="subdued">
                   Osjeća se kao {forecast.feelsLike}°C · Vlažnost {forecast.humidity}%
+                  {forecast.forecastHour != null && <> · <strong>Prognoza za {forecast.forecastHour}:00</strong></>}
                 </Text>
               </div>
             </div>
