@@ -92,7 +92,8 @@ app.post("/webhooks/app-uninstalled", async (req, res) => {
   const hmac = req.headers["x-shopify-hmac-sha256"], shop = req.headers["x-shopify-shop-domain"];
   const { secret: s1 } = getCredentials(1);
   const { secret: s2 } = getCredentials(2);
-  if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2)) return res.status(401).send("Unauthorized");
+  const { secret: s3 } = getCredentials(3);
+  if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2) && !verifyWebhook(req.rawBody, hmac, s3)) return res.status(401).send("Unauthorized");
   res.status(200).send("OK"); handleAppUninstalled(shop).catch(console.error);
 });
 app.post("/webhooks/orders-create", (req, res) => res.status(200).send("OK"));
@@ -101,9 +102,20 @@ app.post("/webhooks/products-update", async (req, res) => {
   if (!hmac || !shop) return res.status(401).send("Unauthorized");
   const { secret: s1 } = getCredentials(1);
   const { secret: s2 } = getCredentials(2);
-  if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2)) return res.status(401).send("Unauthorized");
+  const { secret: s3 } = getCredentials(3);
+  if (!verifyWebhook(req.rawBody, hmac, s1) && !verifyWebhook(req.rawBody, hmac, s2) && !verifyWebhook(req.rawBody, hmac, s3)) return res.status(401).send("Unauthorized");
   res.status(200).send("OK");
   // Ne syncaj kategorije na products/update — sort triggeruje ovaj webhook za svaki proizvod
+});
+
+app.post("/api/admin/reregister-webhooks", async (req, res) => {
+  const { shop } = req.body;
+  try {
+    const s = await getShop(shop);
+    if (!s) return res.status(404).json({ error: "Shop nije nađen" });
+    await registerWebhooks(s.shop_domain, s.access_token, process.env.SHOPIFY_APP_URL);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Kolekcije ──────────────────────────────────────────────────────────────

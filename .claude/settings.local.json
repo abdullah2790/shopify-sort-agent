@@ -6,7 +6,9 @@
       "Bash(curl -s http://localhost:5173)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "WebFetch(domain:shopify.dev)",
+      "WebSearch"
     ]
   }
 }
